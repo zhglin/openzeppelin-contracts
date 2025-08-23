@@ -6,31 +6,31 @@ pragma solidity >=0.5.0;
 import {IERC3156FlashBorrower} from "./IERC3156FlashBorrower.sol";
 
 /**
- * @dev Interface of the ERC-3156 FlashLender, as defined in
- * https://eips.ethereum.org/EIPS/eip-3156[ERC-3156].
+ * @dev ERC-3156 闪电贷出借方（FlashLender）的接口，定义于
+ * https://eips.ethereum.org/EIPS/eip-3156[ERC-3156]。
  */
 interface IERC3156FlashLender {
     /**
-     * @dev The amount of currency available to be lended.
-     * @param token The loan currency.
-     * @return The amount of `token` that can be borrowed.
+     * @dev 可供借出的货币数量。
+     * @param token 贷款的货币。
+     * @return 可以借入的 `token` 的数量。
      */
     function maxFlashLoan(address token) external view returns (uint256);
 
     /**
-     * @dev The fee to be charged for a given loan.
-     * @param token The loan currency.
-     * @param amount The amount of tokens lent.
-     * @return The amount of `token` to be charged for the loan, on top of the returned principal.
+     * @dev 对给定贷款收取的费用。
+     * @param token 贷款的货币。
+     * @param amount 借出的代币数量。
+     * @return 在归还的本金之外，为贷款收取的 `token` 的数量。
      */
     function flashFee(address token, uint256 amount) external view returns (uint256);
 
     /**
-     * @dev Initiate a flash loan.
-     * @param receiver The receiver of the tokens in the loan, and the receiver of the callback.
-     * @param token The loan currency.
-     * @param amount The amount of tokens lent.
-     * @param data Arbitrary data structure, intended to contain user-defined parameters.
+     * @dev 发起一笔闪电贷。
+     * @param receiver 贷款中代币的接收者，也是回调的接收者。
+     * @param token 贷款的货币。
+     * @param amount 借出的代币数量。
+     * @param data 任意数据结构，旨在包含用户定义的参数。
      */
     function flashLoan(
         IERC3156FlashBorrower receiver,

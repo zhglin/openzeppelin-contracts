@@ -8,54 +8,52 @@ import {IERC3156FlashLender} from "../../../interfaces/IERC3156FlashLender.sol";
 import {ERC20} from "../ERC20.sol";
 
 /**
- * @dev Implementation of the ERC-3156 Flash loans extension, as defined in
- * https://eips.ethereum.org/EIPS/eip-3156[ERC-3156].
+ * @dev ERC-3156 闪电贷扩展的实现，定义于
+ * https://eips.ethereum.org/EIPS/eip-3156[ERC-3156]。
  *
- * Adds the {flashLoan} method, which provides flash loan support at the token
- * level. By default there is no fee, but this can be changed by overriding {flashFee}.
+ * 添加了 {flashLoan} 方法，该方法在代币级别提供闪电贷支持。
+ * 默认情况下不收取费用，但可以通过重写 {flashFee} 来更改。
  *
- * NOTE: When this extension is used along with the {ERC20Capped} or {ERC20Votes} extensions,
- * {maxFlashLoan} will not correctly reflect the maximum that can be flash minted. We recommend
- * overriding {maxFlashLoan} so that it correctly reflects the supply cap.
+ * 注意：当此扩展与 {ERC20Capped} 或 {ERC20Votes} 扩展一起使用时，
+ * {maxFlashLoan} 将无法正确反映可闪电铸造的最大数量。我们建议
+ * 重写 {maxFlashLoan} 以便它能正确反映供应上限。
  */
 abstract contract ERC20FlashMint is ERC20, IERC3156FlashLender {
     bytes32 private constant RETURN_VALUE = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     /**
-     * @dev The loan token is not valid.
+     * @dev 贷款代币无效。
      */
     error ERC3156UnsupportedToken(address token);
 
     /**
-     * @dev The requested loan exceeds the max loan value for `token`.
+     * @dev 请求的贷款超过了 `token` 的最大贷款额。
      */
     error ERC3156ExceededMaxLoan(uint256 maxLoan);
 
     /**
-     * @dev The receiver of a flashloan is not a valid {IERC3156FlashBorrower-onFlashLoan} implementer.
+     * @dev 闪电贷的接收者不是一个有效的 {IERC3156FlashBorrower-onFlashLoan} 实现者。
      */
     error ERC3156InvalidReceiver(address receiver);
 
     /**
-     * @dev Returns the maximum amount of tokens available for loan.
-     * @param token The address of the token that is requested.
-     * @return The amount of token that can be loaned.
+     * @dev 返回可供贷款的最大代币数量。
+     * @param token 被请求的代币地址。
+     * @return 可以借出的代币数量。
      *
-     * NOTE: This function does not consider any form of supply cap, so in case
-     * it's used in a token with a cap like {ERC20Capped}, make sure to override this
-     * function to integrate the cap instead of `type(uint256).max`.
+     * 注意：此函数不考虑任何形式的供应上限，因此如果它在像 {ERC20Capped} 这样的
+     * 有上限的代币中使用，请确保重写此函数以集成上限，而不是使用 `type(uint256).max`。
      */
     function maxFlashLoan(address token) public view virtual returns (uint256) {
         return token == address(this) ? type(uint256).max - totalSupply() : 0;
     }
 
     /**
-     * @dev Returns the fee applied when doing flash loans. This function calls
-     * the {_flashFee} function which returns the fee applied when doing flash
-     * loans.
-     * @param token The token to be flash loaned.
-     * @param value The amount of tokens to be loaned.
-     * @return The fees applied to the corresponding flash loan.
+     * @dev 返回执行闪电贷时应用的费用。此函数调用
+     * {_flashFee} 函数，该函数返回执行闪电贷时应用的费用。
+     * @param token 将要进行闪电贷的代币。
+     * @param value 将要借出的代币数量。
+     * @return 应用于相应闪电贷的费用。
      */
     function flashFee(address token, uint256 value) public view virtual returns (uint256) {
         if (token != address(this)) {
@@ -65,12 +63,11 @@ abstract contract ERC20FlashMint is ERC20, IERC3156FlashLender {
     }
 
     /**
-     * @dev Returns the fee applied when doing flash loans. By default this
-     * implementation has 0 fees. This function can be overloaded to make
-     * the flash loan mechanism deflationary.
-     * @param token The token to be flash loaned.
-     * @param value The amount of tokens to be loaned.
-     * @return The fees applied to the corresponding flash loan.
+     * @dev 返回执行闪电贷时应用的费用。默认情况下，此实现为 0 费用。
+     * 可以重载此函数以使闪电贷机制具有通缩性。
+     * @param token 将要进行闪电贷的代币。
+     * @param value 将要借出的代币数量。
+     * @return 应用于相应闪电贷的费用。
      */
     function _flashFee(address token, uint256 value) internal view virtual returns (uint256) {
         // silence warning about unused variable without the addition of bytecode.
@@ -80,31 +77,27 @@ abstract contract ERC20FlashMint is ERC20, IERC3156FlashLender {
     }
 
     /**
-     * @dev Returns the receiver address of the flash fee. By default this
-     * implementation returns the address(0) which means the fee amount will be burnt.
-     * This function can be overloaded to change the fee receiver.
-     * @return The address for which the flash fee will be sent to.
+     * @dev 返回闪电贷费用的接收者地址。默认情况下，此实现返回 address(0)，
+     * 这意味着费用金额将被销毁。可以重载此函数以更改费用接收者。
+     * @return 将要发送闪电贷费用的地址。
      */
     function _flashFeeReceiver() internal view virtual returns (address) {
         return address(0);
     }
 
     /**
-     * @dev Performs a flash loan. New tokens are minted and sent to the
-     * `receiver`, who is required to implement the {IERC3156FlashBorrower}
-     * interface. By the end of the flash loan, the receiver is expected to own
-     * value + fee tokens and have them approved back to the token contract itself so
-     * they can be burned.
-     * @param receiver The receiver of the flash loan. Should implement the
-     * {IERC3156FlashBorrower-onFlashLoan} interface.
-     * @param token The token to be flash loaned. Only `address(this)` is
-     * supported.
-     * @param value The amount of tokens to be loaned.
-     * @param data An arbitrary datafield that is passed to the receiver.
-     * @return `true` if the flash loan was successful.
+     * @dev 执行闪电贷。新的代币被铸造并发送给
+     * `receiver`，该接收者需要实现 {IERC3156FlashBorrower}
+     * 接口。在闪电贷结束时，接收者应拥有
+     * value + fee 的代币，并将它们授权回代币合约本身，以便可以销毁它们。
+     * @param receiver 闪电贷的接收者。应实现
+     * {IERC3156FlashBorrower-onFlashLoan} 接口。
+     * @param token 将要进行闪电贷的代币。仅支持 `address(this)`。
+     * @param value 将要借出的代币数量。
+     * @param data 传递给接收者的任意数据字段。
+     * @return 如果闪电贷成功，则返回 `true`。
      */
-    // This function can reenter, but it doesn't pose a risk because it always preserves the property that the amount
-    // minted at the beginning is always recovered and burned at the end, or else the entire function will revert.
+    // 此函数可以重入，但这不会构成风险，因为它总是保持在开始时铸造的金额在结束时总是被收回和销毁的属性，否则整个函数将回滚。
     // slither-disable-next-line reentrancy-no-eth
     function flashLoan(
         IERC3156FlashBorrower receiver,
@@ -118,6 +111,7 @@ abstract contract ERC20FlashMint is ERC20, IERC3156FlashLender {
         }
         uint256 fee = flashFee(token, value);
         _mint(address(receiver), value);
+        // 立刻调用借款方合约的函数，用来让借款方执行自己的业务逻辑。
         if (receiver.onFlashLoan(_msgSender(), token, value, fee, data) != RETURN_VALUE) {
             revert ERC3156InvalidReceiver(address(receiver));
         }

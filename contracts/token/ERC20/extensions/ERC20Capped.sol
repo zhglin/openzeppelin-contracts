@@ -6,24 +6,23 @@ pragma solidity ^0.8.20;
 import {ERC20} from "../ERC20.sol";
 
 /**
- * @dev Extension of {ERC20} that adds a cap to the supply of tokens.
+ * @dev {ERC20} 的扩展，为代币的总供应量添加了一个上限。
  */
 abstract contract ERC20Capped is ERC20 {
     uint256 private immutable _cap;
 
     /**
-     * @dev Total supply cap has been exceeded.
+     * @dev 已超过总供应量上限。
      */
     error ERC20ExceededCap(uint256 increasedSupply, uint256 cap);
 
     /**
-     * @dev The supplied cap is not a valid cap.
+     * @dev 提供的上限值无效。
      */
     error ERC20InvalidCap(uint256 cap);
 
     /**
-     * @dev Sets the value of the `cap`. This value is immutable, it can only be
-     * set once during construction.
+     * @dev 设置 `cap` 的值。这个值是不可变的，只能在构造函数中设置一次。
      */
     constructor(uint256 cap_) {
         if (cap_ == 0) {
@@ -33,7 +32,7 @@ abstract contract ERC20Capped is ERC20 {
     }
 
     /**
-     * @dev Returns the cap on the token's total supply.
+     * @dev 返回代币总供应量的上限。
      */
     function cap() public view virtual returns (uint256) {
         return _cap;

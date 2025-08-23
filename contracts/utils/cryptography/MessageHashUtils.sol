@@ -79,21 +79,26 @@ library MessageHashUtils {
     }
 
     /**
-     * @dev Returns the keccak256 digest of an EIP-712 typed data (ERC-191 version `0x01`).
-     *
-     * The digest is calculated from a `domainSeparator` and a `structHash`, by prefixing them with
-     * `\x19\x01` and hashing the result. It corresponds to the hash signed by the
-     * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`] JSON-RPC method as part of EIP-712.
-     *
-     * See {ECDSA-recover}.
+     * @dev 返回 EIP-712 类型化数据（ERC-191 版本 `0x01`）的 keccak256 摘要。
+     * 该摘要由 `domainSeparator` 和 `structHash` 计算得出，计算方式为在它们前面加上
+     * `\x19\x01` 前缀，然后对结果进行哈希。它对应于
+     * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`] JSON-RPC 方法作为 EIP-712 的一部分所签名的哈希。
+     * 另请参阅 {ECDSA-recover}。
      */
     function toTypedDataHash(bytes32 domainSeparator, bytes32 structHash) internal pure returns (bytes32 digest) {
+        // keccak256(bytes.concat(hex"19_01", domainSeparator, structHash))
+        // 对于这种简单、固定模式的字节拼接，使用内联汇编可以直接操作内存，
+        // 避免了 Solidity 在高级语法层面的一些额外开销（例如边界检查、内存管理等），从而消耗更少的 Gas。
         assembly ("memory-safe") {
+            // 空闲内存指针
             let ptr := mload(0x40)
+            // 写入前缀 "\x19\x01" 一次写入32字节,左对齐,右边补0
             mstore(ptr, hex"19_01")
+            // 写入 domainSeparator 从后面2字节开始写入,一次写入32字节
             mstore(add(ptr, 0x02), domainSeparator)
+            // 写入 structHash 再次写入32字节,从后面34字节开始写入
             mstore(add(ptr, 0x22), structHash)
-            digest := keccak256(ptr, 0x42)
+            digest := keccak256(ptr, 0x42) // 总共64字节（0x42 = 0x02 + 0x20 + 0x20）
         }
     }
 }

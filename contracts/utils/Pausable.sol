@@ -6,43 +6,42 @@ pragma solidity ^0.8.20;
 import {Context} from "../utils/Context.sol";
 
 /**
- * @dev Contract module which allows children to implement an emergency stop
- * mechanism that can be triggered by an authorized account.
+ * @dev 合约模块，允许子合约实现一个可由授权帐户触发的紧急停止机制。
  *
- * This module is used through inheritance. It will make available the
- * modifiers `whenNotPaused` and `whenPaused`, which can be applied to
- * the functions of your contract. Note that they will not be pausable by
- * simply including this module, only once the modifiers are put in place.
+ * 该模块通过继承来使用。它将提供 `whenNotPaused` 和 `whenPaused` 修改器，
+ * 这些修改器可以应用于您的合约的函数。请注意，仅仅包含此模块并不会使函数变得可暂停，
+ * 只有在应用了这些修改器之后才可以。
+ * 
+ * 此合约不包含公开的暂停和取消暂停功能。除了继承此合约外，您还必须定义这两个功能，调用 {Pausable-_pause} 和 {Pausable-_unpause}
+  内部函数，并使用适当的访问控制...
  */
 abstract contract Pausable is Context {
     bool private _paused;
 
     /**
-     * @dev Emitted when the pause is triggered by `account`.
+     * @dev 当 `account` 触发暂停时发出。
      */
     event Paused(address account);
 
     /**
-     * @dev Emitted when the pause is lifted by `account`.
+     * @dev 当 `account` 解除暂停时发出。
      */
     event Unpaused(address account);
 
     /**
-     * @dev The operation failed because the contract is paused.
+     * @dev 操作失败，因为合约已被暂停。
      */
     error EnforcedPause();
 
     /**
-     * @dev The operation failed because the contract is not paused.
+     * @dev 操作失败，因为合约未被暂停。
      */
     error ExpectedPause();
 
     /**
-     * @dev Modifier to make a function callable only when the contract is not paused.
-     *
-     * Requirements:
-     *
-     * - The contract must not be paused.
+     * @dev 修改器，使函数仅在合约未暂停时可调用。
+     * 要求：
+     * - 合约必须未被暂停。
      */
     modifier whenNotPaused() {
         _requireNotPaused();
@@ -50,11 +49,9 @@ abstract contract Pausable is Context {
     }
 
     /**
-     * @dev Modifier to make a function callable only when the contract is paused.
-     *
-     * Requirements:
-     *
-     * - The contract must be paused.
+     * @dev 修改器，使函数仅在合约暂停时可调用。
+     * 要求：
+     * - 合约必须已被暂停。
      */
     modifier whenPaused() {
         _requirePaused();
@@ -62,14 +59,14 @@ abstract contract Pausable is Context {
     }
 
     /**
-     * @dev Returns true if the contract is paused, and false otherwise.
+     * @dev 如果合约被暂停，则返回 true，否则返回 false。
      */
     function paused() public view virtual returns (bool) {
         return _paused;
     }
 
     /**
-     * @dev Throws if the contract is paused.
+     * @dev 如果合约被暂停，则抛出错误。
      */
     function _requireNotPaused() internal view virtual {
         if (paused()) {
@@ -78,7 +75,7 @@ abstract contract Pausable is Context {
     }
 
     /**
-     * @dev Throws if the contract is not paused.
+     * @dev 如果合约未被暂停，则抛出错误。
      */
     function _requirePaused() internal view virtual {
         if (!paused()) {
@@ -87,11 +84,9 @@ abstract contract Pausable is Context {
     }
 
     /**
-     * @dev Triggers stopped state.
-     *
-     * Requirements:
-     *
-     * - The contract must not be paused.
+     * @dev 触发停止状态。
+     * 要求：
+     * - 合约必须未被暂停。
      */
     function _pause() internal virtual whenNotPaused {
         _paused = true;
@@ -99,11 +94,9 @@ abstract contract Pausable is Context {
     }
 
     /**
-     * @dev Returns to normal state.
-     *
-     * Requirements:
-     *
-     * - The contract must be paused.
+     * @dev 恢复到正常状态。
+     * 要求：
+     * - 合约必须已被暂停。
      */
     function _unpause() internal virtual whenPaused {
         _paused = false;

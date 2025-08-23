@@ -7,22 +7,22 @@ import {IERC20, IERC20Metadata, ERC20} from "../ERC20.sol";
 import {SafeERC20} from "../utils/SafeERC20.sol";
 
 /**
- * @dev Extension of the ERC-20 token contract to support token wrapping.
+ * @dev ERC-20 代币合约的扩展，以支持代币包装。
  *
- * Users can deposit and withdraw "underlying tokens" and receive a matching number of "wrapped tokens". This is useful
- * in conjunction with other modules. For example, combining this wrapping mechanism with {ERC20Votes} will allow the
- * wrapping of an existing "basic" ERC-20 into a governance token.
+ * 用户可以存入和取出“底层代币”，并收到相应数量的“包装代币”。这与其他模块结合使用时非常有用。
+ * 例如，将此包装机制与 {ERC20Votes} 结合，可以将现有的“基本”ERC-20 包装成一个治理代币。
  *
- * WARNING: Any mechanism in which the underlying token changes the {balanceOf} of an account without an explicit transfer
- * may desynchronize this contract's supply and its underlying balance. Please exercise caution when wrapping tokens that
- * may undercollateralize the wrapper (i.e. wrapper's total supply is higher than its underlying balance). See {_recover}
- * for recovering value accrued to the wrapper.
+ * 警告：任何底层代币在没有显式转移的情况下改变账户 {balanceOf} 的机制，
+ * 都可能导致此合约的供应量与其底层余额不同步。在包装那些可能导致包装器抵押不足
+ * （即包装器的总供应量高于其底层余额）的代币时，请务必谨慎。请参阅 {_recover}
+ * 以恢复累积到包装器的价值。
  */
 abstract contract ERC20Wrapper is ERC20 {
+    // 被包装的底层代币
     IERC20 private immutable _underlying;
 
     /**
-     * @dev The underlying token couldn't be wrapped.
+     * @dev 底层代币无法被包装。
      */
     error ERC20InvalidUnderlying(address token);
 
@@ -43,14 +43,14 @@ abstract contract ERC20Wrapper is ERC20 {
     }
 
     /**
-     * @dev Returns the address of the underlying ERC-20 token that is being wrapped.
+     * @dev 返回正在被包装的底层 ERC-20 代币的地址。
      */
     function underlying() public view returns (IERC20) {
         return _underlying;
     }
 
     /**
-     * @dev Allow a user to deposit underlying tokens and mint the corresponding number of wrapped tokens.
+     * @dev 允许用户存入底层代币，并铸造相应数量的包装代币。
      */
     function depositFor(address account, uint256 value) public virtual returns (bool) {
         address sender = _msgSender();
@@ -60,26 +60,34 @@ abstract contract ERC20Wrapper is ERC20 {
         if (account == address(this)) {
             revert ERC20InvalidReceiver(account);
         }
+        // 把value个底层代币存入当前合约
         SafeERC20.safeTransferFrom(_underlying, sender, address(this), value);
+        // 铸造相应数量的包装代币
         _mint(account, value);
         return true;
     }
 
     /**
-     * @dev Allow a user to burn a number of wrapped tokens and withdraw the corresponding number of underlying tokens.
+     * @dev 允许用户销毁一定数量的包装代币，并取出相应数量的底层代币。
      */
     function withdrawTo(address account, uint256 value) public virtual returns (bool) {
         if (account == address(this)) {
             revert ERC20InvalidReceiver(account);
         }
+        // 销毁value个包装代币
         _burn(_msgSender(), value);
+        // 把value个底层代币转回给account
         SafeERC20.safeTransfer(_underlying, account, value);
         return true;
     }
 
     /**
-     * @dev Mint wrapped token to cover any underlyingTokens that would have been transferred by mistake or acquired from
-     * rebasing mechanisms. Internal function that can be exposed with access control if desired.
+     * @dev 铸造包装代币以覆盖任何可能因错误转移或从变基机制中获得的底层代币。
+     * 这是一个内部函数，如果需要，可以通过访问控制来暴露。
+     *
+     * 同步“包装代币的总供应量”与“合约持有的底层代币的实际数量”，以处理那些意外多出来的底层代币。
+     * 理想状态: 包装代币与底层代币的数量应该是相等的。
+     * 但如果底层代币的数量多于包装代币的数量，则需要调用此函数来恢复。（错误转账，变基代币，空投或分红）
      */
     function _recover(address account) internal virtual returns (uint256) {
         uint256 value = _underlying.balanceOf(address(this)) - totalSupply();

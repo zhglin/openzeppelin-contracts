@@ -6,10 +6,10 @@ pragma solidity ^0.8.20;
 import {IERC165} from "./IERC165.sol";
 
 /**
- * @dev Implementation of the {IERC165} interface.
+ * @dev {IERC165} 接口的实现。
  *
- * Contracts that want to implement ERC-165 should inherit from this contract and override {supportsInterface} to check
- * for the additional interface id that will be supported. For example:
+ * 想要实现 ERC-165 的合约应该继承此合约并重写 {supportsInterface} 以检查
+ * 将支持的额外接口 ID。例如：
  *
  * ```solidity
  * function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {

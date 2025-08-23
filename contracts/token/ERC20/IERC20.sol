@@ -4,76 +4,66 @@
 pragma solidity >=0.4.16;
 
 /**
- * @dev Interface of the ERC-20 standard as defined in the ERC.
+ * @dev ERC-20标准的接口，如ERC中所定义。
  */
 interface IERC20 {
     /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
+     * @dev 当`value`个代币从一个账户（`from`）转移到另一个账户（`to`）时发出。
      *
-     * Note that `value` may be zero.
+     * 请注意，`value`可能为零。
      */
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
+     * @dev 当通过调用{approve}来设置`owner`的`spender`的津贴时发出。`value`是新的津贴。
      */
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
     /**
-     * @dev Returns the value of tokens in existence.
+     * @dev 返回现有的代币数量。
      */
     function totalSupply() external view returns (uint256);
 
     /**
-     * @dev Returns the value of tokens owned by `account`.
+     * @dev 返回`account`拥有的代币数量。
      */
     function balanceOf(address account) external view returns (uint256);
 
     /**
-     * @dev Moves a `value` amount of tokens from the caller's account to `to`.
+     * @dev 将`value`数量的代币从调用者的账户转移到`to`。
      *
-     * Returns a boolean value indicating whether the operation succeeded.
+     * 返回一个布尔值，指示操作是否成功。
      *
-     * Emits a {Transfer} event.
+     * 发出{Transfer}事件。
      */
     function transfer(address to, uint256 value) external returns (bool);
 
     /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
+     * @dev 返回`spender`将通过{transferFrom}代表`owner`花费的剩余代币数量。默认为零。
      *
-     * This value changes when {approve} or {transferFrom} are called.
+     * 当调用{approve}或{transferFrom}时，此值会更改。
      */
     function allowance(address owner, address spender) external view returns (uint256);
 
     /**
-     * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
-     * caller's tokens.
+     * @dev 将`value`数量的代币设置为`spender`对调用者代币的津贴。
      *
-     * Returns a boolean value indicating whether the operation succeeded.
+     * 返回一个布尔值，指示操作是否成功。
      *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
+     * 重要提示：请注意，使用此方法更改津贴会带来风险，即有人可能会因不幸的交易排序而同时使用旧津贴和新津贴。
+     * 缓解此竞争条件的一种可能解决方案是首先将支出者的津贴减少到0，然后再设置所需的值：
      * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
      *
-     * Emits an {Approval} event.
+     * 发出{Approval}事件。
      */
     function approve(address spender, uint256 value) external returns (bool);
 
     /**
-     * @dev Moves a `value` amount of tokens from `from` to `to` using the
-     * allowance mechanism. `value` is then deducted from the caller's
-     * allowance.
+     * @dev 使用津贴机制将`value`数量的代币从`from`转移到`to`。然后从调用者的津贴中扣除`value`。
      *
-     * Returns a boolean value indicating whether the operation succeeded.
+     * 返回一个布尔值，指示操作是否成功。
      *
-     * Emits a {Transfer} event.
+     * 发出{Transfer}事件。
      */
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }

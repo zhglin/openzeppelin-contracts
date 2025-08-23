@@ -26,7 +26,7 @@ library Strings {
             (1 << 0x5c); // backslash
 
     /**
-     * @dev The `value` string doesn't fit in the specified `length`.
+     * @dev The `value` string doesn't fit in the specified `leng`.
      */
     error StringsInsufficientHexLength(uint256 value, uint256 length);
 

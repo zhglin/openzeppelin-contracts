@@ -7,25 +7,21 @@ import {ERC20} from "../ERC20.sol";
 import {Pausable} from "../../../utils/Pausable.sol";
 
 /**
- * @dev ERC-20 token with pausable token transfers, minting and burning.
+ * @dev 带有可暂停的代币转移、铸造和销毁功能的 ERC-20 代币。
  *
- * Useful for scenarios such as preventing trades until the end of an evaluation
- * period, or having an emergency switch for freezing all token transfers in the
- * event of a large bug.
+ * 适用于以下场景：例如在评估期结束前阻止交易，或在出现重大漏洞时作为紧急开关冻结所有代币转移。
  *
- * IMPORTANT: This contract does not include public pause and unpause functions. In
- * addition to inheriting this contract, you must define both functions, invoking the
- * {Pausable-_pause} and {Pausable-_unpause} internal functions, with appropriate
- * access control, e.g. using {AccessControl} or {Ownable}. Not doing so will
- * make the contract pause mechanism of the contract unreachable, and thus unusable.
+ * 重要提示：此合约不包含公开的暂停和取消暂停功能。除了继承此合约外，您还必须定义这两个功能，
+ * 调用 {Pausable-_pause} 和 {Pausable-_unpause} 内部函数，并使用适当的访问控制，例如使用 {AccessControl} 或 {Ownable}。
+ * 否则，合约的暂停机制将无法访问，从而无法使用。
  */
 abstract contract ERC20Pausable is ERC20, Pausable {
     /**
-     * @dev See {ERC20-_update}.
+     * @dev 参见 {ERC20-_update}。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the contract must not be paused.
+     * - 合约必须未被暂停。
      */
     function _update(address from, address to, uint256 value) internal virtual override whenNotPaused {
         super._update(from, to, value);
