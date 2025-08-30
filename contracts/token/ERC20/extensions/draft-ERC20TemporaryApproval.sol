@@ -10,11 +10,23 @@ import {SlotDerivation} from "../../../utils/SlotDerivation.sol";
 import {TransientSlot} from "../../../utils/TransientSlot.sol";
 
 /**
- * @dev Extension of {ERC20} that adds support for temporary allowances following ERC-7674.
+ * @dev {ERC20} 的扩展，增加了对遵循 ERC-7674 的临时授权的支持。
+ * 警告：这是一个草案合约。相应的 ERC 仍可能会有变动。
  *
- * WARNING: This is a draft contract. The corresponding ERC is still subject to changes.
- *
- * _Available since v5.1._
+ * _自 v5.1 版起可用。_
+ * 
+ * temporaryApprove 的核心思想是：授权和花费在同一笔交易（Transaction）中原子化地完成，授权的生命周期仅限于这笔交易。
+ *  极高的安全性: 授权“阅后即焚”，没有任何残留。交易一结束，外部合约就再也没有权限动用你的资金，彻底消除了“无限授权”的风险。
+ *  极佳的用户体验: 用户只需签名并发送一笔交易即可完成所有操作，流程大大简化，快速且方便。
+ *  极低的 Gas 成本: 由于授权是临时的，存储在瞬态存储 (Transient Storage) 中，交易结束后自动清除，不会产生任何持久化存储成本。
+ * 
+ * 用户只需要发起一笔交易，这笔交易会像一个脚本一样，按顺序执行以下两个步骤：
+ *  步骤一：临时授权
+ *      交易首先调用 DAI 合约的 temporaryApprove 函数，授权给 DEX 路由合约可以花费 100 个 DAI。
+ *      这个授权被记录在瞬时存储 (Transient Storage) 中，它的生命周期仅限于当前这笔交易。
+ *  步骤二：执行兑换
+ *      交易接着立即调用 DEX 路由合约的 swap 函数。
+ *      swap 函数内部调用 transferFrom 来花费你的 100 个 DAI。由于上一步的临时授权在当前交易中有效，所以这一步会成功执行。
  */
 abstract contract ERC20TemporaryApproval is ERC20, IERC7674 {
     using SlotDerivation for bytes32;
@@ -26,8 +38,8 @@ abstract contract ERC20TemporaryApproval is ERC20, IERC7674 {
         0xea2d0e77a01400d0111492b1321103eed560d8fe44b9a7c2410407714583c400;
 
     /**
-     * @dev {allowance} override that includes the temporary allowance when looking up the current allowance. If
-     * adding up the persistent and the temporary allowances result in an overflow, type(uint256).max is returned.
+     * @dev {allowance} 的重写版本，在查询当前授权时会包含临时授权。如果
+     * 永久授权和临时授权相加导致溢出，则返回 type(uint256).max。
      */
     function allowance(address owner, address spender) public view virtual override(IERC20, ERC20) returns (uint256) {
         (bool success, uint256 amount) = Math.tryAdd(
@@ -38,22 +50,18 @@ abstract contract ERC20TemporaryApproval is ERC20, IERC7674 {
     }
 
     /**
-     * @dev Internal getter for the current temporary allowance that `spender` has over `owner` tokens.
+     * @dev 用于获取 `spender` 对 `owner` 代币当前临时授权额度的内部 getter 函数。
      */
     function _temporaryAllowance(address owner, address spender) internal view virtual returns (uint256) {
         return _temporaryAllowanceSlot(owner, spender).tload();
     }
 
     /**
-     * @dev Alternative to {approve} that sets a `value` amount of tokens as the temporary allowance of `spender` over
-     * the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Requirements:
-     * - `spender` cannot be the zero address.
-     *
-     * Does NOT emit an {Approval} event.
+     * @dev {approve} 的替代方案，它将 `value` 数量的代币设置为 `spender` 对调用者代币的临时授权。
+     * 返回一个布尔值，表示操作是否成功。
+     * 要求：
+     * - `spender` 不能是零地址。
+     * 不会发出 {Approval} 事件。
      */
     function temporaryApprove(address spender, uint256 value) public virtual returns (bool) {
         _temporaryApprove(_msgSender(), spender, value);
@@ -61,16 +69,12 @@ abstract contract ERC20TemporaryApproval is ERC20, IERC7674 {
     }
 
     /**
-     * @dev Sets `value` as the temporary allowance of `spender` over the `owner`'s tokens.
-     *
-     * This internal function is equivalent to `temporaryApprove`, and can be used to e.g. set automatic allowances
-     * for certain subsystems, etc.
-     *
-     * Requirements:
-     * - `owner` cannot be the zero address.
-     * - `spender` cannot be the zero address.
-     *
-     * Does NOT emit an {Approval} event.
+     * @dev 将 `value` 设置为 `spender` 对 `owner` 代币的临时授权。
+     * 这个内部函数等同于 `temporaryApprove`，可以用于例如为某些子系统设置自动授权等。
+     * 要求：
+     * - `owner` 不能是零地址。
+     * - `spender` 不能是零地址。
+     * 不会发出 {Approval} 事件。
      */
     function _temporaryApprove(address owner, address spender, uint256 value) internal virtual {
         if (owner == address(0)) {
@@ -83,36 +87,36 @@ abstract contract ERC20TemporaryApproval is ERC20, IERC7674 {
     }
 
     /**
-     * @dev {_spendAllowance} override that consumes the temporary allowance (if any) before eventually falling back
-     * to consuming the persistent allowance.
-     * NOTE: This function skips calling `super._spendAllowance` if the temporary allowance
-     * is enough to cover the spending.
+     * @dev {_spendAllowance} 的重写版本，它会先消耗临时授权（如果有的话），
+     * 然后才会回退到消耗永久授权。
+     * 注意：如果临时授权足以覆盖本次花费，此函数将跳过对 `super._spendAllowance` 的调用。
      */
     function _spendAllowance(address owner, address spender, uint256 value) internal virtual override {
-        // load transient allowance
+        // 加载瞬时授权
         uint256 currentTemporaryAllowance = _temporaryAllowance(owner, spender);
 
-        // Check and update (if needed) the temporary allowance + set remaining value
+        // 检查并更新（如果需要）临时授权 + 设置剩余值
         if (currentTemporaryAllowance > 0) {
-            // All value is covered by the infinite allowance. nothing left to spend, we can return early
+            // 所有花费都被无限授权覆盖。没有剩余的花费，我们可以提前返回
             if (currentTemporaryAllowance == type(uint256).max) {
                 return;
             }
-            // check how much of the value is covered by the transient allowance
+            // 检查有多少花费被瞬时授权覆盖
             uint256 spendTemporaryAllowance = Math.min(currentTemporaryAllowance, value);
             unchecked {
-                // decrease transient allowance accordingly
+                // 相应地减少瞬时授权
                 _temporaryApprove(owner, spender, currentTemporaryAllowance - spendTemporaryAllowance);
-                // update value necessary
+                // 更新必要的值
                 value -= spendTemporaryAllowance;
             }
         }
-        // reduce any remaining value from the persistent allowance
+        // 从永久授权中扣除任何剩余的值
         if (value > 0) {
             super._spendAllowance(owner, spender, value);
         }
     }
 
+    // 派生出给定所有者和支出者的临时授权槽 mapping[owner][spender] => uint256
     function _temporaryAllowanceSlot(address owner, address spender) private pure returns (TransientSlot.Uint256Slot) {
         return ERC20_TEMPORARY_APPROVAL_STORAGE.deriveMapping(owner).deriveMapping(spender).asUint256();
     }

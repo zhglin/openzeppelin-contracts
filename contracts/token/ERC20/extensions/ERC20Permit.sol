@@ -71,6 +71,8 @@ abstract contract ERC20Permit is ERC20, IERC20Permit, EIP712, Nonces {
     constructor(string memory name) EIP712(name, "1") {}
 
     /// @inheritdoc IERC20Permit
+    // 签名过程 (链下)：owner 在自己的钱包里（例如 MetaMask），用自己的私钥对这份“合同”的指紋 (hash) 进行签名。
+    // 签名操作的输出就是 v, r, s这三个值。`v, r, s` 是 `owner` 私钥和 `hash` 结合的数学结果，是独一无二的授权凭证。
     function permit(
         address owner,
         address spender,

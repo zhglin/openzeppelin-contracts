@@ -8,14 +8,13 @@ import {ERC165, IERC165} from "../../../utils/introspection/ERC165.sol";
 import {IERC7802} from "../../../interfaces/draft-IERC7802.sol";
 
 /**
- * @dev ERC20 extension that implements the standard token interface according to
- * https://eips.ethereum.org/EIPS/eip-7802[ERC-7802].
+ * @dev 实现了 https://eips.ethereum.org/EIPS/eip-7802[ERC-7802] 中定义的标准代币接口的 ERC20 扩展。
  */
 abstract contract ERC20Bridgeable is ERC20, ERC165, IERC7802 {
-    /// @dev Modifier to restrict access to the token bridge.
+    /// @dev 用于限制只有代币桥可以访问的修饰器。
     modifier onlyTokenBridge() {
-        // Token bridge should never be impersonated using a relayer/forwarder. Using msg.sender is preferable to
-        // _msgSender() for security reasons.
+        // 代币桥永远不应该被中继器/转发器所冒充。出于安全原因，
+        // 使用 msg.sender 比使用 _msgSender() 更可取。
         _checkTokenBridge(msg.sender);
         _;
     }
@@ -26,7 +25,7 @@ abstract contract ERC20Bridgeable is ERC20, ERC165, IERC7802 {
     }
 
     /**
-     * @dev See {IERC7802-crosschainMint}. Emits a {IERC7802-CrosschainMint} event.
+     * @dev 参见 {IERC7802-crosschainMint}。发出一个 {IERC7802-CrosschainMint} 事件。
      */
     function crosschainMint(address to, uint256 value) public virtual override onlyTokenBridge {
         _mint(to, value);
@@ -34,7 +33,7 @@ abstract contract ERC20Bridgeable is ERC20, ERC165, IERC7802 {
     }
 
     /**
-     * @dev See {IERC7802-crosschainBurn}. Emits a {IERC7802-CrosschainBurn} event.
+     * @dev 参见 {IERC7802-crosschainBurn}。发出一个 {IERC7802-CrosschainBurn} 事件。
      */
     function crosschainBurn(address from, uint256 value) public virtual override onlyTokenBridge {
         _burn(from, value);
@@ -42,10 +41,10 @@ abstract contract ERC20Bridgeable is ERC20, ERC165, IERC7802 {
     }
 
     /**
-     * @dev Checks if the caller is a trusted token bridge. MUST revert otherwise.
+     * @dev 检查调用者是否是受信任的代币桥。如果不是，则必须 revert。
      *
-     * Developers should implement this function using an access control mechanism that allows
-     * customizing the list of allowed senders. Consider using {AccessControl} or {AccessManaged}.
+     * 开发者应该使用一种允许自定义许可发送者列表的访问控制机制来实现此函数。
+     * 可以考虑使用 {AccessControl} 或 {AccessManaged}。
      */
     function _checkTokenBridge(address caller) internal virtual;
 }

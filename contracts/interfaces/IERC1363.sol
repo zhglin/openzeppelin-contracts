@@ -8,14 +8,14 @@ import {IERC165} from "./IERC165.sol";
 
 /**
  * @title IERC1363
- * @dev Interface of the ERC-1363 standard as defined in the https://eips.ethereum.org/EIPS/eip-1363[ERC-1363].
+ * @dev ERC-1363 标准的接口，定义于 https://eips.ethereum.org/EIPS/eip-1363[ERC-1363]。
  *
- * Defines an extension interface for ERC-20 tokens that supports executing code on a recipient contract
- * after `transfer` or `transferFrom`, or code on a spender contract after `approve`, in a single transaction.
+ * 为 ERC-20 代币定义了一个扩展接口，支持在 `transfer` 或 `transferFrom` 之后，在接收方合约上执行代码；
+ * 或在 `approve` 之后，在花费方合约上执行代码，所有操作均在单笔交易中完成。
  */
 interface IERC1363 is IERC20, IERC165 {
     /*
-     * Note: the ERC-165 identifier for this interface is 0xb0202a11.
+     * 注意：此接口的 ERC-165 标识符是 0xb0202a11。
      * 0xb0202a11 ===
      *   bytes4(keccak256('transferAndCall(address,uint256)')) ^
      *   bytes4(keccak256('transferAndCall(address,uint256,bytes)')) ^
@@ -26,61 +26,61 @@ interface IERC1363 is IERC20, IERC165 {
      */
 
     /**
-     * @dev Moves a `value` amount of tokens from the caller's account to `to`
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
-     * @param to The address which you want to transfer to.
-     * @param value The amount of tokens to be transferred.
-     * @return A boolean value indicating whether the operation succeeded unless throwing.
+     * @dev 将 `value` 数量的代币从调用者账户转移到 `to` 地址，
+     * 然后在 `to` 地址上调用 {IERC1363Receiver-onTransferReceived}。
+     * @param to 你想要转入代币的地址。
+     * @param value 要转移的代币数量。
+     * @return 一个布尔值，表示操作是否成功（除非抛出异常）。
      */
     function transferAndCall(address to, uint256 value) external returns (bool);
 
     /**
-     * @dev Moves a `value` amount of tokens from the caller's account to `to`
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
-     * @param to The address which you want to transfer to.
-     * @param value The amount of tokens to be transferred.
-     * @param data Additional data with no specified format, sent in call to `to`.
-     * @return A boolean value indicating whether the operation succeeded unless throwing.
+     * @dev 将 `value` 数量的代币从调用者账户转移到 `to` 地址，
+     * 然后在 `to` 地址上调用 {IERC1363Receiver-onTransferReceived}。
+     * @param to 你想要转入代币的地址。
+     * @param value 要转移的代币数量。
+     * @param data 附加数据，无特定格式，在调用 `to` 时发送。
+     * @return 一个布尔值，表示操作是否成功（除非抛出异常）。
      */
     function transferAndCall(address to, uint256 value, bytes calldata data) external returns (bool);
 
     /**
-     * @dev Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
-     * @param from The address which you want to send tokens from.
-     * @param to The address which you want to transfer to.
-     * @param value The amount of tokens to be transferred.
-     * @return A boolean value indicating whether the operation succeeded unless throwing.
+     * @dev 使用授权（allowance）机制，将 `value` 数量的代币从 `from` 地址转移到 `to` 地址，
+     * 然后在 `to` 地址上调用 {IERC1363Receiver-onTransferReceived}。
+     * @param from 你想要从中转出代币的地址。
+     * @param to 你想要转入代币的地址。
+     * @param value 要转移的代币数量。
+     * @return 一个布尔值，表示操作是否成功（除非抛出异常）。
      */
     function transferFromAndCall(address from, address to, uint256 value) external returns (bool);
 
     /**
-     * @dev Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
-     * @param from The address which you want to send tokens from.
-     * @param to The address which you want to transfer to.
-     * @param value The amount of tokens to be transferred.
-     * @param data Additional data with no specified format, sent in call to `to`.
-     * @return A boolean value indicating whether the operation succeeded unless throwing.
+     * @dev 使用授权（allowance）机制，将 `value` 数量的代币从 `from` 地址转移到 `to` 地址，
+     * 然后在 `to` 地址上调用 {IERC1363Receiver-onTransferReceived}。
+     * @param from 你想要从中转出代币的地址。
+     * @param to 你想要转入代币的地址。
+     * @param value 要转移的代币数量。
+     * @param data 附加数据，无特定格式，在调用 `to` 时发送。
+     * @return 一个布尔值，表示操作是否成功（除非抛出异常）。
      */
     function transferFromAndCall(address from, address to, uint256 value, bytes calldata data) external returns (bool);
 
     /**
-     * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
-     * caller's tokens and then calls {IERC1363Spender-onApprovalReceived} on `spender`.
-     * @param spender The address which will spend the funds.
-     * @param value The amount of tokens to be spent.
-     * @return A boolean value indicating whether the operation succeeded unless throwing.
+     * @dev 将 `value` 数量的代币设置为 `spender` 对调用者代币的授权额度，
+     * 然后在 `spender` 上调用 {IERC1363Spender-onApprovalReceived}。
+     * @param spender 将要花费资金的地址。
+     * @param value 将要花费的代币数量。
+     * @return 一个布尔值，表示操作是否成功（除非抛出异常）。
      */
     function approveAndCall(address spender, uint256 value) external returns (bool);
 
     /**
-     * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
-     * caller's tokens and then calls {IERC1363Spender-onApprovalReceived} on `spender`.
-     * @param spender The address which will spend the funds.
-     * @param value The amount of tokens to be spent.
-     * @param data Additional data with no specified format, sent in call to `spender`.
-     * @return A boolean value indicating whether the operation succeeded unless throwing.
+     * @dev 将 `value` 数量的代币设置为 `spender` 对调用者代币的授权额度，
+     * 然后在 `spender` 上调用 {IERC1363Spender-onApprovalReceived}。
+     * @param spender 将要花费资金的地址。
+     * @param value 将要花费的代币数量。
+     * @param data 附加数据，无特定格式，在调用 `spender` 时发送。
+     * @return 一个布尔值，表示操作是否成功（除非抛出异常）。
      */
     function approveAndCall(address spender, uint256 value, bytes calldata data) external returns (bool);
 }

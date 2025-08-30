@@ -12,23 +12,26 @@ import {ECDSA} from "../../utils/cryptography/ECDSA.sol";
 import {Time} from "../../utils/types/Time.sol";
 
 /**
- * @dev This is a base abstract contract that tracks voting units, which are a measure of voting power that can be
- * transferred, and provides a system of vote delegation, where an account can delegate its voting units to a sort of
- * "representative" that will pool delegated voting units from different accounts and can then use it to vote in
- * decisions. In fact, voting units _must_ be delegated in order to count as actual votes, and an account has to
- * delegate those votes to itself if it wishes to participate in decisions and does not have a trusted representative.
+ * @dev 这是一个基础抽象合约，用于追踪“投票单位”（voting units），这是一种可以转移的投票权度量。
+ * 它提供了一套投票委托系统，账户可以将其投票单位委托给一个“代表”，该代表可以汇集来自不同账户的委托投票单位，
+ * 并用其在决策中投票。实际上，投票单位**必须**被委托才能计为实际选票，如果一个账户希望参与决策且没有信任的代表，
+ * 它必须将投票权委托给自己。
  *
- * This contract is often combined with a token contract such that voting units correspond to token units. For an
- * example, see {ERC721Votes}.
+ * 这个合约通常与一个代币合约结合，使得投票单位与代币单位相对应。例如，请参阅 {ERC721Votes}。
  *
- * The full history of delegate votes is tracked on-chain so that governance protocols can consider votes as distributed
- * at a particular block number to protect against flash loans and double voting. The opt-in delegate system makes the
- * cost of this history tracking optional.
+ * 委托投票的完整历史记录在链上被追踪，以便治理协议可以将在特定区块号时分布的投票考虑在内，
+ * 以防止闪电贷攻击和双重投票。这种“选择性加入”（opt-in）的委托系统使得历史记录追踪的成本成为可选的。
  *
- * When using this module the derived contract must implement {_getVotingUnits} (for example, make it return
- * {ERC721-balanceOf}), and can use {_transferVotingUnits} to track a change in the distribution of those units (in the
- * previous example, it would be included in {ERC721-_update}).
+ * 当使用此模块时，派生合约必须实现 {_getVotingUnits}（例如，使其返回 {ERC721-balanceOf}），
+ * 并且可以使用 {_transferVotingUnits} 来追踪这些单位分布的变化（在前面的例子中，它将被包含在 {ERC721-_update} 中）。
  */
+
+/**
+ * 安全性：防止通过闪电贷等金融工具在短时间内获得大量虚假投票权来操纵治理。
+ * 公平性：确保投票权与对协议的长期持有和承诺成正比，而不是临时的资金实力。
+ * 防止双重投票：防止用户在投票后转移代币给他人，让同一批代币在同一提案中被多次使用。
+ */
+
 abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     using Checkpoints for Checkpoints.Trace208;
 
@@ -42,29 +45,29 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     Checkpoints.Trace208 private _totalCheckpoints;
 
     /**
-     * @dev The clock was incorrectly modified.
+     * @dev 时钟被错误地修改了。
      */
     error ERC6372InconsistentClock();
 
     /**
-     * @dev Lookup to future votes is not available.
+     * @dev 无法查询未来的投票。
      */
     error ERC5805FutureLookup(uint256 timepoint, uint48 clock);
 
     /**
-     * @dev Clock used for flagging checkpoints. Can be overridden to implement timestamp based
-     * checkpoints (and voting), in which case {CLOCK_MODE} should be overridden as well to match.
+     * @dev 用于标记检查点的时钟。可以被重写以实现基于时间戳的检查点（和投票），
+     * 在这种情况下，{CLOCK_MODE} 也应被重写以匹配。
      */
     function clock() public view virtual returns (uint48) {
         return Time.blockNumber();
     }
 
     /**
-     * @dev Machine-readable description of the clock as specified in ERC-6372.
+     * @dev 根据 ERC-6372 规范，提供对时钟的机器可读的描述。
      */
     // solhint-disable-next-line func-name-mixedcase
     function CLOCK_MODE() public view virtual returns (string memory) {
-        // Check that the clock was not modified
+        // 检查时钟是否被修改
         if (clock() != Time.blockNumber()) {
             revert ERC6372InconsistentClock();
         }
@@ -72,7 +75,7 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Validate that a timepoint is in the past, and return it as a uint48.
+     * @dev 验证一个时间点是否在过去，并将其作为 uint48 返回。
      */
     function _validateTimepoint(uint256 timepoint) internal view returns (uint48) {
         uint48 currentTimepoint = clock();
@@ -81,56 +84,71 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Returns the current amount of votes that `account` has.
+     * @dev 返回 `account` 当前拥有的投票数量。
+     * 
+     * getVotes() 返回 1000：这是你当前的投票潜力，代表你为未来的提案所做的准备。
+     * getPastVotes() 返回 0：这是你对于那个特定的、过去的提案的实际投票能力。
      */
     function getVotes(address account) public view virtual returns (uint256) {
         return _delegateCheckpoints[account].latest();
     }
 
     /**
-     * @dev Returns the amount of votes that `account` had at a specific moment in the past. If the `clock()` is
-     * configured to use block numbers, this will return the value at the end of the corresponding block.
+     * @dev 返回 `account` 在过去某一特定时间点拥有的投票数量。如果 `clock()` 被配置为使用区块号，
+     * 则此函数将返回相应区块结束时的值。
      *
-     * Requirements:
-     *
-     * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
+     * 要求：
+     * - `timepoint` 必须在过去。如果使用区块号操作，该区块必须已被挖出。
+     * 
+     * 系统用的是 getPastVotes() 来获取提案快照时的票数，以确保公平和安全。
+     * getPastVotes的设计目的，就是为了查询“历史状态”，从而防止用户在提案创建后，通过购买代币或借用代币（闪电贷）来临时增加票数，操纵投票结果。
+     * timepoint 这个参数通常不是由投票的用户来设置的，而是由治理合约在内部自动管理的。一个标准的 DAO 治理流程如下：
+     * 1. 创建提案 (Proposal Creation)
+     *      用户调用治理合约的 propose() 函数来提交一项新提案。
+     *      在 propose() 函数执行时，治理合约会立刻读取当前的区块号，并将其作为“快照区块”保存下来。
+     *      例如：proposal.snapshotBlock = block.number;
+     *      这个 snapshotBlock 会和提案的其他信息（如描述、执行代码等）一起被永久记录在链上。
+     * 
+     * 你必须在提案创建之前，就完成投票权的委托。
+     *  这就像现实世界中的选举：
+     *  选举登记截止日期：可以看作是提案创建的“快照区块”。
+     *  你的授权（`delegate`）：相当于你去政府部门进行“选民登记”。
+     *  如果你在“选举登记截止日期”之后才去登记，那么你将无法参与本次选举，但好消息是，你的登记已经生效，对于未来的所有选举，你都拥有了投票资格。
      */
     function getPastVotes(address account, uint256 timepoint) public view virtual returns (uint256) {
         return _delegateCheckpoints[account].upperLookupRecent(_validateTimepoint(timepoint));
     }
 
     /**
-     * @dev Returns the total supply of votes available at a specific moment in the past. If the `clock()` is
-     * configured to use block numbers, this will return the value at the end of the corresponding block.
+     * @dev 返回过去某一特定时间点的总投票供应量。如果 `clock()` 被配置为使用区块号，
+     * 则此函数将返回相应区块结束时的值。
      *
-     * NOTE: This value is the sum of all available votes, which is not necessarily the sum of all delegated votes.
-     * Votes that have not been delegated are still part of total supply, even though they would not participate in a
-     * vote.
+     * 注意：这个值是所有可用投票的总和，不一定是所有已委托投票的总和。
+     * 尚未被委托的投票仍然是总供应量的一部分，即使它们不会参与投票。
      *
-     * Requirements:
-     *
-     * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
+     * 要求：
+     * - `timepoint` 必须在过去。如果使用区块号操作，该区块必须已被挖出。
      */
     function getPastTotalSupply(uint256 timepoint) public view virtual returns (uint256) {
         return _totalCheckpoints.upperLookupRecent(_validateTimepoint(timepoint));
     }
 
     /**
-     * @dev Returns the current total supply of votes.
+     * @dev 返回当前的总投票供应量。
      */
     function _getTotalSupply() internal view virtual returns (uint256) {
         return _totalCheckpoints.latest();
     }
 
     /**
-     * @dev Returns the delegate that `account` has chosen.
+     * @dev 返回 `account` 已选择的投票委托人。
      */
     function delegates(address account) public view virtual returns (address) {
         return _delegatee[account];
     }
 
     /**
-     * @dev Delegates votes from the sender to `delegatee`.
+     * @dev 将投票权从发送者委托给 `delegatee`。
      */
     function delegate(address delegatee) public virtual {
         address account = _msgSender();
@@ -138,7 +156,7 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Delegates votes from signer to `delegatee`.
+     * @dev 将投票权从签名者委托给 `delegatee`。
      */
     function delegateBySig(
         address delegatee,
@@ -162,9 +180,8 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Delegate all of `account`'s voting units to `delegatee`.
-     *
-     * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
+     * @dev 将 `account` 的所有投票单位委托给 `delegatee`。
+     * 触发 {IVotes-DelegateChanged} 和 {IVotes-DelegateVotesChanged} 事件。
      */
     function _delegate(address account, address delegatee) internal virtual {
         address oldDelegate = delegates(account);
@@ -175,8 +192,8 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Transfers, mints, or burns voting units. To register a mint, `from` should be zero. To register a burn, `to`
-     * should be zero. Total supply of voting units will be adjusted with mints and burns.
+     * @dev 转移、铸造或销毁投票单位。若要注册一次铸造，`from` 应为零地址。若要注册一次销毁，`to` 应为零地址。
+     * 投票单位的总供应量将随着铸造和销毁而调整。
      */
     function _transferVotingUnits(address from, address to, uint256 amount) internal virtual {
         if (from == address(0)) {
@@ -189,9 +206,10 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Moves delegated votes from one delegate to another.
+     * @dev 将委托的投票从一个委托人转移到另一个。
      */
     function _moveDelegateVotes(address from, address to, uint256 amount) internal virtual {
+        // 不能多次转移给自己,只能转移给自己一次.
         if (from != to && amount > 0) {
             if (from != address(0)) {
                 (uint256 oldValue, uint256 newValue) = _push(
@@ -213,14 +231,14 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Get number of checkpoints for `account`.
+     * @dev 获取 `account` 的检查点数量。
      */
     function _numCheckpoints(address account) internal view virtual returns (uint32) {
         return SafeCast.toUint32(_delegateCheckpoints[account].length());
     }
 
     /**
-     * @dev Get the `pos`-th checkpoint for `account`.
+     * @dev 获取 `account` 的第 `pos` 个检查点。
      */
     function _checkpoints(
         address account,
@@ -246,7 +264,7 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Must return the voting units held by an account.
+     * @dev 必须返回一个账户所持有的投票单位。
      */
     function _getVotingUnits(address) internal view virtual returns (uint256);
 }

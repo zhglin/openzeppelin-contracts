@@ -7,8 +7,8 @@ import {IERC20} from "../token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "../token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
- * @dev Interface of the ERC-4626 "Tokenized Vault Standard", as defined in
- * https://eips.ethereum.org/EIPS/eip-4626[ERC-4626].
+ * @dev ERC-4626 "代币化金库标准" 的接口，定义于
+ * https://eips.ethereum.org/EIPS/eip-4626[ERC-4626]。
  */
 interface IERC4626 is IERC20, IERC20Metadata {
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
@@ -22,209 +22,203 @@ interface IERC4626 is IERC20, IERC20Metadata {
     );
 
     /**
-     * @dev Returns the address of the underlying token used for the Vault for accounting, depositing, and withdrawing.
+     * @dev 返回金库用于记账、存款和取款的基础代币的地址。
      *
-     * - MUST be an ERC-20 token contract.
-     * - MUST NOT revert.
+     * - 必须是 ERC-20 代币合约。
+     * - 不得还原。
      */
     function asset() external view returns (address assetTokenAddress);
 
     /**
-     * @dev Returns the total amount of the underlying asset that is “managed” by Vault.
+     * @dev 返回金库“管理”的基础资产的总量。
      *
-     * - SHOULD include any compounding that occurs from yield.
-     * - MUST be inclusive of any fees that are charged against assets in the Vault.
-     * - MUST NOT revert.
+     * - 应包括收益产生的任何复利。
+     * - 必须包括从金库中资产收取的所有费用。
+     * - 不得还原。
      */
     function totalAssets() external view returns (uint256 totalManagedAssets);
 
     /**
-     * @dev Returns the amount of shares that the Vault would exchange for the amount of assets provided, in an ideal
-     * scenario where all the conditions are met.
+     * @dev 在所有条件都满足的理想情况下，
+     * 返回金库将为所提供的资产数量兑换的份额数量。
      *
-     * - MUST NOT be inclusive of any fees that are charged against assets in the Vault.
-     * - MUST NOT show any variations depending on the caller.
-     * - MUST NOT reflect slippage or other on-chain conditions, when performing the actual exchange.
-     * - MUST NOT revert.
+     * - 不得包括从金库中资产收取的任何费用。
+     * - 不得因调用者而显示任何差异。
+     * - 在执行实际兑换时，不得反映滑点或其他链上条件。
+     * - 不得还原。
      *
-     * NOTE: This calculation MAY NOT reflect the “per-user” price-per-share, and instead should reflect the
-     * “average-user’s” price-per-share, meaning what the average user should expect to see when exchanging to and
-     * from.
+     * 注意：此计算可能不反映“每个用户”的每股价格，而应反映
+     * “普通用户”的每股价格，即普通用户在兑换时应期望看到的价格。
      */
     function convertToShares(uint256 assets) external view returns (uint256 shares);
 
     /**
-     * @dev Returns the amount of assets that the Vault would exchange for the amount of shares provided, in an ideal
-     * scenario where all the conditions are met.
+     * @dev 在所有条件都满足的理想情况下，
+     * 返回金库将为所提供的份额数量兑换的资产数量。
      *
-     * - MUST NOT be inclusive of any fees that are charged against assets in the Vault.
-     * - MUST NOT show any variations depending on the caller.
-     * - MUST NOT reflect slippage or other on-chain conditions, when performing the actual exchange.
-     * - MUST NOT revert.
+     * - 不得包括从金库中资产收取的任何费用。
+     * - 不得因调用者而显示任何差异。
+     * - 在执行实际兑换时，不得反映滑点或其他链上条件。
+     * - 不得还原。
      *
-     * NOTE: This calculation MAY NOT reflect the “per-user” price-per-share, and instead should reflect the
-     * “average-user’s” price-per-share, meaning what the average user should expect to see when exchanging to and
-     * from.
+     * 注意：此计算可能不反映“每个用户”的每股价格，而应反映
+     * “普通用户”的每股价格，即普通用户在兑换时应期望看到的价格。
      */
     function convertToAssets(uint256 shares) external view returns (uint256 assets);
 
     /**
-     * @dev Returns the maximum amount of the underlying asset that can be deposited into the Vault for the receiver,
-     * through a deposit call.
+     * @dev 通过存款调用，返回可以为接收者存入金库的基础资产的最大数量。
      *
-     * - MUST return a limited value if receiver is subject to some deposit limit.
-     * - MUST return 2 ** 256 - 1 if there is no limit on the maximum amount of assets that may be deposited.
-     * - MUST NOT revert.
+     * - 如果接收者受到某些存款限制，则必须返回一个有限值。
+     * - 如果对可能存入的最大资产数量没有限制，则必须返回 2 ** 256 - 1。
+     * - 不得还原。
      */
     function maxDeposit(address receiver) external view returns (uint256 maxAssets);
 
     /**
-     * @dev Allows an on-chain or off-chain user to simulate the effects of their deposit at the current block, given
-     * current on-chain conditions.
+     * @dev 允许链上或链下用户在当前区块，
+     * 根据当前的链上条件，模拟其存款的效果。
      *
-     * - MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit
-     *   call in the same transaction. I.e. deposit should return the same or more shares as previewDeposit if called
-     *   in the same transaction.
-     * - MUST NOT account for deposit limits like those returned from maxDeposit and should always act as though the
-     *   deposit would be accepted, regardless if the user has enough tokens approved, etc.
-     * - MUST be inclusive of deposit fees. Integrators should be aware of the existence of deposit fees.
-     * - MUST NOT revert.
+     * - 必须返回尽可能接近且不超过在同一交易中存款调用中将铸造的
+     *   金库份额的确切数量。即，如果在同一交易中调用，
+     *   `deposit` 应返回与 `previewDeposit` 相同或更多的份额。
+     * - 不得考虑像 `maxDeposit` 返回的存款限制，并应始终假定
+     *   存款将被接受，无论用户是否有足够的代币批准等。
+     * - 必须包括存款费用。集成商应意识到存款费用的存在。
+     * - 不得还原。
      *
-     * NOTE: any unfavorable discrepancy between convertToShares and previewDeposit SHOULD be considered slippage in
-     * share price or some other type of condition, meaning the depositor will lose assets by depositing.
+     * 注意：`convertToShares` 和 `previewDeposit` 之间的任何不利差异都应被视为
+     * 份额价格的滑点或其他类型的条件，意味着存款人将因存款而损失资产。
      */
     function previewDeposit(uint256 assets) external view returns (uint256 shares);
 
     /**
-     * @dev Mints shares Vault shares to receiver by depositing exactly amount of underlying tokens.
+     * @dev 通过存入确切数量的基础代币，为接收者铸造金库份额。
      *
-     * - MUST emit the Deposit event.
-     * - MAY support an additional flow in which the underlying tokens are owned by the Vault contract before the
-     *   deposit execution, and are accounted for during deposit.
-     * - MUST revert if all of assets cannot be deposited (due to deposit limit being reached, slippage, the user not
-     *   approving enough underlying tokens to the Vault contract, etc).
+     * - 必须发出 `Deposit` 事件。
+     * - 可以支持一种额外的流程，其中基础代币在存款执行前由金库合约拥有，
+     *   并在存款期间进行核算。
+     * - 如果所有资产都无法存入（由于达到存款限额、滑点、用户未向金库合约批准足够的
+     *   基础代币等），则必须还原。
      *
-     * NOTE: most implementations will require pre-approval of the Vault with the Vault’s underlying asset token.
+     * 注意：大多数实现将需要使用金库的基础资产代币对金库进行预先批准。
      */
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 
     /**
-     * @dev Returns the maximum amount of the Vault shares that can be minted for the receiver, through a mint call.
-     * - MUST return a limited value if receiver is subject to some mint limit.
-     * - MUST return 2 ** 256 - 1 if there is no limit on the maximum amount of shares that may be minted.
-     * - MUST NOT revert.
+     * @dev 通过铸币调用，返回可以为接收者铸造的金库份额的最大数量。
+     * - 如果接收者受到某些铸币限制，则必须返回一个有限值。
+     * - 如果对可能铸造的最大份额数量没有限制，则必须返回 2 ** 256 - 1。
+     * - 不得还原。
      */
     function maxMint(address receiver) external view returns (uint256 maxShares);
 
     /**
-     * @dev Allows an on-chain or off-chain user to simulate the effects of their mint at the current block, given
-     * current on-chain conditions.
+     * @dev 允许链上或链下用户在当前区块，
+     * 根据当前的链上条件，模拟其铸币的效果。
      *
-     * - MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call
-     *   in the same transaction. I.e. mint should return the same or fewer assets as previewMint if called in the
-     *   same transaction.
-     * - MUST NOT account for mint limits like those returned from maxMint and should always act as though the mint
-     *   would be accepted, regardless if the user has enough tokens approved, etc.
-     * - MUST be inclusive of deposit fees. Integrators should be aware of the existence of deposit fees.
-     * - MUST NOT revert.
+     * - 必须返回尽可能接近且不少于在同一交易中铸币调用中将存入的
+     *   资产的确切数量。即，如果在同一交易中调用，
+     *   `mint` 应返回与 `previewMint` 相同或更少的资产。
+     * - 不得考虑像 `maxMint` 返回的铸币限制，并应始终假定
+     *   铸币将被接受，无论用户是否有足够的代币批准等。
+     * - 必须包括存款费用。集成商应意识到存款费用的存在。
+     * - 不得还原。
      *
-     * NOTE: any unfavorable discrepancy between convertToAssets and previewMint SHOULD be considered slippage in
-     * share price or some other type of condition, meaning the depositor will lose assets by minting.
+     * 注意：`convertToAssets` 和 `previewMint` 之间的任何不利差异都应被视为
+     * 份额价格的滑点或其他类型的条件，意味着存款人将因铸币而损失资产。
      */
     function previewMint(uint256 shares) external view returns (uint256 assets);
 
     /**
-     * @dev Mints exactly shares Vault shares to receiver by depositing amount of underlying tokens.
+     * @dev 通过存入基础代币，为接收者铸造确切数量的金库份额。
      *
-     * - MUST emit the Deposit event.
-     * - MAY support an additional flow in which the underlying tokens are owned by the Vault contract before the mint
-     *   execution, and are accounted for during mint.
-     * - MUST revert if all of shares cannot be minted (due to deposit limit being reached, slippage, the user not
-     *   approving enough underlying tokens to the Vault contract, etc).
+     * - 必须发出 `Deposit` 事件。
+     * - 可以支持一种额外的流程，其中基础代币在铸币执行前由金库合约拥有，
+     *   并在铸币期间进行核算。
+     * - 如果所有份额都无法铸造（由于达到存款限额、滑点、用户未向金库合约批准足够的
+     *   基础代币等），则必须还原。
      *
-     * NOTE: most implementations will require pre-approval of the Vault with the Vault’s underlying asset token.
+     * 注意：大多数实现将需要使用金库的基础资产代币对金库进行预先批准。
      */
     function mint(uint256 shares, address receiver) external returns (uint256 assets);
 
     /**
-     * @dev Returns the maximum amount of the underlying asset that can be withdrawn from the owner balance in the
-     * Vault, through a withdraw call.
+     * @dev 通过取款调用，返回可以从金库中所有者余额中提取的基础资产的最大数量。
      *
-     * - MUST return a limited value if owner is subject to some withdrawal limit or timelock.
-     * - MUST NOT revert.
+     * - 如果所有者受到某些取款限制或时间锁，则必须返回一个有限值。
+     * - 不得还原。
      */
     function maxWithdraw(address owner) external view returns (uint256 maxAssets);
 
     /**
-     * @dev Allows an on-chain or off-chain user to simulate the effects of their withdrawal at the current block,
-     * given current on-chain conditions.
+     * @dev 允许链上或链下用户在当前区块，
+     * 根据当前的链上条件，模拟其取款的效果。
      *
-     * - MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw
-     *   call in the same transaction. I.e. withdraw should return the same or fewer shares as previewWithdraw if
-     *   called
-     *   in the same transaction.
-     * - MUST NOT account for withdrawal limits like those returned from maxWithdraw and should always act as though
-     *   the withdrawal would be accepted, regardless if the user has enough shares, etc.
-     * - MUST be inclusive of withdrawal fees. Integrators should be aware of the existence of withdrawal fees.
-     * - MUST NOT revert.
+     * - 必须返回尽可能接近且不少于在同一交易中取款调用中将销毁的
+     *   金库份额的确切数量。即，如果在同一交易中调用，
+     *   `withdraw` 应返回与 `previewWithdraw` 相同或更少的份额。
+     * - 不得考虑像 `maxWithdraw` 返回的取款限制，并应始终假定
+     *   取款将被接受，无论用户是否有足够的份额等。
+     * - 必须包括取款费用。集成商应意识到取款费用的存在。
+     * - 不得还原。
      *
-     * NOTE: any unfavorable discrepancy between convertToShares and previewWithdraw SHOULD be considered slippage in
-     * share price or some other type of condition, meaning the depositor will lose assets by depositing.
+     * 注意：`convertToShares` 和 `previewWithdraw` 之间的任何不利差异都应被视为
+     * 份额价格的滑点或其他类型的条件，意味着存款人将因存款而损失资产。
      */
     function previewWithdraw(uint256 assets) external view returns (uint256 shares);
 
     /**
-     * @dev Burns shares from owner and sends exactly assets of underlying tokens to receiver.
+     * @dev 从所有者处销毁份额，并将确切数量的基础代币发送给接收者。
      *
-     * - MUST emit the Withdraw event.
-     * - MAY support an additional flow in which the underlying tokens are owned by the Vault contract before the
-     *   withdraw execution, and are accounted for during withdraw.
-     * - MUST revert if all of assets cannot be withdrawn (due to withdrawal limit being reached, slippage, the owner
-     *   not having enough shares, etc).
+     * - 必须发出 `Withdraw` 事件。
+     * - 可以支持一种额外的流程，其中基础代币在取款执行前由金库合约拥有，
+     *   并在取款期间进行核算。
+     * - 如果所有资产都无法提取（由于达到取款限额、滑点、所有者没有足够的份额等），
+     *   则必须还原。
      *
-     * Note that some implementations will require pre-requesting to the Vault before a withdrawal may be performed.
-     * Those methods should be performed separately.
+     * 注意，某些实现将需要在执行取款之前向金库预先请求。
+     * 这些方法应单独执行。
      */
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
 
     /**
-     * @dev Returns the maximum amount of Vault shares that can be redeemed from the owner balance in the Vault,
-     * through a redeem call.
+     * @dev 通过赎回调用，返回可以从金库中所有者余额中赎回的金库份额的最大数量。
      *
-     * - MUST return a limited value if owner is subject to some withdrawal limit or timelock.
-     * - MUST return balanceOf(owner) if owner is not subject to any withdrawal limit or timelock.
-     * - MUST NOT revert.
+     * - 如果所有者受到某些取款限制或时间锁，则必须返回一个有限值。
+     * - 如果所有者不受任何取款限制或时间锁的约束，则必须返回 `balanceOf(owner)`。
+     * - 不得还原。
      */
     function maxRedeem(address owner) external view returns (uint256 maxShares);
 
     /**
-     * @dev Allows an on-chain or off-chain user to simulate the effects of their redemption at the current block,
-     * given current on-chain conditions.
+     * @dev 允许链上或链下用户在当前区块，
+     * 根据当前的链上条件，模拟其赎回的效果。
      *
-     * - MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call
-     *   in the same transaction. I.e. redeem should return the same or more assets as previewRedeem if called in the
-     *   same transaction.
-     * - MUST NOT account for redemption limits like those returned from maxRedeem and should always act as though the
-     *   redemption would be accepted, regardless if the user has enough shares, etc.
-     * - MUST be inclusive of withdrawal fees. Integrators should be aware of the existence of withdrawal fees.
-     * - MUST NOT revert.
+     * - 必须返回尽可能接近且不超过在同一交易中赎回调用中将提取的
+     *   资产的确切数量。即，如果在同一交易中调用，
+     *   `redeem` 应返回与 `previewRedeem` 相同或更多的资产。
+     * - 不得考虑像 `maxRedeem` 返回的赎回限制，并应始终假定
+     *   赎回将被接受，无论用户是否有足够的份额等。
+     * - 必须包括取款费用。集成商应意识到取款费用的存在。
+     * - 不得还原。
      *
-     * NOTE: any unfavorable discrepancy between convertToAssets and previewRedeem SHOULD be considered slippage in
-     * share price or some other type of condition, meaning the depositor will lose assets by redeeming.
+     * 注意：`convertToAssets` 和 `previewRedeem` 之间的任何不利差异都应被视为
+     * 份额价格的滑点或其他类型的条件，意味着存款人将因赎回而损失资产。
      */
     function previewRedeem(uint256 shares) external view returns (uint256 assets);
 
     /**
-     * @dev Burns exactly shares from owner and sends assets of underlying tokens to receiver.
+     * @dev 从所有者处销毁确切数量的份额，并将基础代币的资产发送给接收者。
      *
-     * - MUST emit the Withdraw event.
-     * - MAY support an additional flow in which the underlying tokens are owned by the Vault contract before the
-     *   redeem execution, and are accounted for during redeem.
-     * - MUST revert if all of shares cannot be redeemed (due to withdrawal limit being reached, slippage, the owner
-     *   not having enough shares, etc).
+     * - 必须发出 `Withdraw` 事件。
+     * - 可以支持一种额外的流程，其中基础代币在赎回执行前由金库合约拥有，
+     *   并在赎回期间进行核算。
+     * - 如果所有份额都无法赎回（由于达到取款限额、滑点、所有者没有足够的份额等），
+     *   则必须还原。
      *
-     * NOTE: some implementations will require pre-requesting to the Vault before a withdrawal may be performed.
-     * Those methods should be performed separately.
+     * 注意：某些实现将需要在执行取款之前向金库预先请求。
+     * 这些方法应单独执行。
      */
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
 }

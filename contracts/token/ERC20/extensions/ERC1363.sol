@@ -10,32 +10,32 @@ import {ERC1363Utils} from "../utils/ERC1363Utils.sol";
 
 /**
  * @title ERC1363
- * @dev Extension of {ERC20} tokens that adds support for code execution after transfers and approvals
- * on recipient contracts. Calls after transfers are enabled through the {ERC1363-transferAndCall} and
- * {ERC1363-transferFromAndCall} methods while calls after approvals can be made with {ERC1363-approveAndCall}
+ * @dev {ERC20} 代币的扩展，增加了在接收者合约上进行转账和批准后执行代码的支持。
+ * 转账后的调用通过 {ERC1363-transferAndCall} 和 {ERC1363-transferFromAndCall} 方法启用，
+ * 而批准后的调用可以使用 {ERC1363-approveAndCall} 进行。
  *
- * _Available since v5.1._
+ * _自 v5.1 版起可用。_
  */
 abstract contract ERC1363 is ERC20, ERC165, IERC1363 {
     /**
-     * @dev Indicates a failure within the {transfer} part of a transferAndCall operation.
-     * @param receiver Address to which tokens are being transferred.
-     * @param value Amount of tokens to be transferred.
+     * @dev 表示 transferAndCall 操作的 {transfer} 部分失败。
+     * @param receiver 接收代币的地址。
+     * @param value 要转移的代币数量。
      */
     error ERC1363TransferFailed(address receiver, uint256 value);
 
     /**
-     * @dev Indicates a failure within the {transferFrom} part of a transferFromAndCall operation.
-     * @param sender Address from which to send tokens.
-     * @param receiver Address to which tokens are being transferred.
-     * @param value Amount of tokens to be transferred.
+     * @dev 表示 transferFromAndCall 操作的 {transferFrom} 部分失败。
+     * @param sender 发送代币的地址。
+     * @param receiver 接收代币的地址。
+     * @param value 要转移的代币数量。
      */
     error ERC1363TransferFromFailed(address sender, address receiver, uint256 value);
 
     /**
-     * @dev Indicates a failure within the {approve} part of a approveAndCall operation.
-     * @param spender Address which will spend the funds.
-     * @param value Amount of tokens to be spent.
+     * @dev 表示 approveAndCall 操作的 {approve} 部分失败。
+     * @param spender 将花费资金的地址。
+     * @param value 要花费的代币数量。
      */
     error ERC1363ApproveFailed(address spender, uint256 value);
 
@@ -45,24 +45,22 @@ abstract contract ERC1363 is ERC20, ERC165, IERC1363 {
     }
 
     /**
-     * @dev Moves a `value` amount of tokens from the caller's account to `to`
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`. Returns a flag that indicates
-     * if the call succeeded.
+     * @dev 将 `value` 数量的代币从调用者的账户移动到 `to`，
+     * 然后在 `to` 上调用 {IERC1363Receiver-onTransferReceived}。返回一个标志，指示
+     * 调用是否成功。
      *
-     * Requirements:
-     *
-     * - The target has code (i.e. is a contract).
-     * - The target `to` must implement the {IERC1363Receiver} interface.
-     * - The target must return the {IERC1363Receiver-onTransferReceived} selector to accept the transfer.
-     * - The internal {transfer} must succeed (returned `true`).
+     * 要求：
+     * - 目标有代码（即是合约）。
+     * - 目标 `to` 必须实现 {IERC1363Receiver} 接口。
+     * - 目标必须返回 {IERC1363Receiver-onTransferReceived} 选择器以接受转账。
+     * - 内部 {transfer} 必须成功（返回 `true`）。
      */
     function transferAndCall(address to, uint256 value) public returns (bool) {
         return transferAndCall(to, value, "");
     }
 
     /**
-     * @dev Variant of {transferAndCall} that accepts an additional `data` parameter with
-     * no specified format.
+     * @dev {transferAndCall} 的变体，接受一个没有指定格式的额外 `data` 参数。
      */
     function transferAndCall(address to, uint256 value, bytes memory data) public virtual returns (bool) {
         if (!transfer(to, value)) {
@@ -73,24 +71,22 @@ abstract contract ERC1363 is ERC20, ERC165, IERC1363 {
     }
 
     /**
-     * @dev Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`. Returns a flag that indicates
-     * if the call succeeded.
+     * @dev 使用授权机制将 `value` 数量的代币从 `from` 移动到 `to`，
+     * 然后在 `to` 上调用 {IERC1363Receiver-onTransferReceived}。返回一个标志，指示
+     * 调用是否成功。
      *
-     * Requirements:
-     *
-     * - The target has code (i.e. is a contract).
-     * - The target `to` must implement the {IERC1363Receiver} interface.
-     * - The target must return the {IERC1363Receiver-onTransferReceived} selector to accept the transfer.
-     * - The internal {transferFrom} must succeed (returned `true`).
+     * 要求：
+     * - 目标有代码（即是合约）。
+     * - 目标 `to` 必须实现 {IERC1363Receiver} 接口。
+     * - 目标必须返回 {IERC1363Receiver-onTransferReceived} 选择器以接受转账。
+     * - 内部 {transferFrom} 必须成功（返回 `true`）。
      */
     function transferFromAndCall(address from, address to, uint256 value) public returns (bool) {
         return transferFromAndCall(from, to, value, "");
     }
 
     /**
-     * @dev Variant of {transferFromAndCall} that accepts an additional `data` parameter with
-     * no specified format.
+     * @dev {transferFromAndCall} 的变体，接受一个没有指定格式的额外 `data` 参数。
      */
     function transferFromAndCall(
         address from,
@@ -106,24 +102,22 @@ abstract contract ERC1363 is ERC20, ERC165, IERC1363 {
     }
 
     /**
-     * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
-     * caller's tokens and then calls {IERC1363Spender-onApprovalReceived} on `spender`.
-     * Returns a flag that indicates if the call succeeded.
+     * @dev 将 `value` 数量的代币设置为 `spender` 对调用者代币的授权额度，
+     * 然后在 `spender` 上调用 {IERC1363Spender-onApprovalReceived}。
+     * 返回一个标志，指示调用是否成功。
      *
-     * Requirements:
-     *
-     * - The target has code (i.e. is a contract).
-     * - The target `spender` must implement the {IERC1363Spender} interface.
-     * - The target must return the {IERC1363Spender-onApprovalReceived} selector to accept the approval.
-     * - The internal {approve} must succeed (returned `true`).
+     * 要求：
+     * - 目标有代码（即是合约）。
+     * - 目标 `spender` 必须实现 {IERC1363Spender} 接口。
+     * - 目标必须返回 {IERC1363Spender-onApprovalReceived} 选择器以接受批准。
+     * - 内部 {approve} 必须成功（返回 `true`）。
      */
     function approveAndCall(address spender, uint256 value) public returns (bool) {
         return approveAndCall(spender, value, "");
     }
 
     /**
-     * @dev Variant of {approveAndCall} that accepts an additional `data` parameter with
-     * no specified format.
+     * @dev {approveAndCall} 的变体，接受一个没有指定格式的额外 `data` 参数。
      */
     function approveAndCall(address spender, uint256 value, bytes memory data) public virtual returns (bool) {
         if (!approve(spender, value)) {
