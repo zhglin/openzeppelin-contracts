@@ -1,23 +1,22 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC1155/IERC1155.sol)
+// OpenZeppelin 合约 (最后更新于 v5.4.0) (token/ERC1155/IERC1155.sol)
 
 pragma solidity >=0.6.2;
 
 import {IERC165} from "../../utils/introspection/IERC165.sol";
 
 /**
- * @dev Required interface of an ERC-1155 compliant contract, as defined in the
- * https://eips.ethereum.org/EIPS/eip-1155[ERC].
+ * @dev 符合 ERC-1155 标准的合约所需接口，定义于
+ * https://eips.ethereum.org/EIPS/eip-1155[ERC]。
  */
 interface IERC1155 is IERC165 {
     /**
-     * @dev Emitted when `value` amount of tokens of type `id` are transferred from `from` to `to` by `operator`.
+     * @dev 当 `operator` 将 `value` 数量的 `id` 类型代币从 `from` 转移到 `to` 时发出。
      */
     event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
 
     /**
-     * @dev Equivalent to multiple {TransferSingle} events, where `operator`, `from` and `to` are the same for all
-     * transfers.
+     * @dev 相当于多个 {TransferSingle} 事件，其中所有转移的 `operator`、`from` 和 `to` 都相同。
      */
     event TransferBatch(
         address indexed operator,
@@ -28,31 +27,28 @@ interface IERC1155 is IERC165 {
     );
 
     /**
-     * @dev Emitted when `account` grants or revokes permission to `operator` to transfer their tokens, according to
-     * `approved`.
+     * @dev 当 `account` 根据 `approved` 授予或撤销 `operator` 转移其代币的权限时发出。
      */
     event ApprovalForAll(address indexed account, address indexed operator, bool approved);
 
     /**
-     * @dev Emitted when the URI for token type `id` changes to `value`, if it is a non-programmatic URI.
+     * @dev 当 `id` 类型代币的 URI 更改为 `value` 时发出，如果它是一个非程序化 URI。
      *
-     * If an {URI} event was emitted for `id`, the standard
-     * https://eips.ethereum.org/EIPS/eip-1155#metadata-extensions[guarantees] that `value` will equal the value
-     * returned by {IERC1155MetadataURI-uri}.
+     * 如果为 `id` 发出了一个 {URI} 事件，标准
+     * https://eips.ethereum.org/EIPS/eip-1155#metadata-extensions[保证] `value` 将等于
+     * {IERC1155MetadataURI-uri} 返回的值。
      */
     event URI(string value, uint256 indexed id);
 
     /**
-     * @dev Returns the value of tokens of token type `id` owned by `account`.
+     * @dev 返回 `account` 拥有的 `id` 类型代币的数量。
      */
     function balanceOf(address account, uint256 id) external view returns (uint256);
 
     /**
-     * @dev xref:ROOT:erc1155.adoc#batch-operations[Batched] version of {balanceOf}.
-     *
-     * Requirements:
-     *
-     * - `accounts` and `ids` must have the same length.
+     * @dev xref:ROOT:erc1155.adoc#batch-operations[批处理] 版本的 {balanceOf}。
+     * 要求：
+     * - `accounts` 和 `ids` 必须具有相同的长度。
      */
     function balanceOfBatch(
         address[] calldata accounts,
@@ -60,58 +56,46 @@ interface IERC1155 is IERC165 {
     ) external view returns (uint256[] memory);
 
     /**
-     * @dev Grants or revokes permission to `operator` to transfer the caller's tokens, according to `approved`,
-     *
-     * Emits an {ApprovalForAll} event.
-     *
-     * Requirements:
-     *
-     * - `operator` cannot be the zero address.
+     * @dev 根据 `approved` 授予或撤销 `operator` 转移调用者代币的权限。
+     * 发出 {ApprovalForAll} 事件。
+     * 要求：
+     * - `operator` 不能是零地址。
      */
     function setApprovalForAll(address operator, bool approved) external;
 
     /**
-     * @dev Returns true if `operator` is approved to transfer ``account``'s tokens.
-     *
-     * See {setApprovalForAll}.
+     * @dev 如果 `operator` 被批准转移 `account` 的代币，则返回 true。
+     * 参见 {setApprovalForAll}。
      */
     function isApprovedForAll(address account, address operator) external view returns (bool);
 
     /**
-     * @dev Transfers a `value` amount of tokens of type `id` from `from` to `to`.
+     * @dev 将 `value` 数量的 `id` 类型代币从 `from` 转移到 `to`。
      *
-     * WARNING: This function can potentially allow a reentrancy attack when transferring tokens
-     * to an untrusted contract, when invoking {IERC1155Receiver-onERC1155Received} on the receiver.
-     * Ensure to follow the checks-effects-interactions pattern and consider employing
-     * reentrancy guards when interacting with untrusted contracts.
+     * 警告：当将代币转移到不受信任的合约时，在接收者上调用 {IERC1155Receiver-onERC1155Received} 时，
+     * 此函数可能允许重入攻击。
+     * 在与不受信任的合约交互时，请确保遵循检查-效果-交互模式，并考虑使用重入守卫。
+     * 发出 {TransferSingle} 事件。
      *
-     * Emits a {TransferSingle} event.
-     *
-     * Requirements:
-     *
-     * - `to` cannot be the zero address.
-     * - If the caller is not `from`, it must have been approved to spend ``from``'s tokens via {setApprovalForAll}.
-     * - `from` must have a balance of tokens of type `id` of at least `value` amount.
-     * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155Received} and return the
-     * acceptance magic value.
+     * 要求：
+     * - `to` 不能是零地址。
+     * - 如果调用者不是 `from`，则必须已通过 {setApprovalForAll} 被批准花费 `from` 的代币。
+     * - `from` 必须拥有至少 `value` 数量的 `id` 类型代币的余额。
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155Received} 并返回接受魔法值。
      */
     function safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes calldata data) external;
 
     /**
-     * @dev xref:ROOT:erc1155.adoc#batch-operations[Batched] version of {safeTransferFrom}.
+     * @dev xref:ROOT:erc1155.adoc#batch-operations[批处理] 版本的 {safeTransferFrom}。
      *
-     * WARNING: This function can potentially allow a reentrancy attack when transferring tokens
-     * to an untrusted contract, when invoking {IERC1155Receiver-onERC1155BatchReceived} on the receiver.
-     * Ensure to follow the checks-effects-interactions pattern and consider employing
-     * reentrancy guards when interacting with untrusted contracts.
+     * 警告：当将代币转移到不受信任的合约时，在接收者上调用 {IERC1155Receiver-onERC1155BatchReceived} 时，
+     * 此函数可能允许重入攻击。
+     * 在与不受信任的合约交互时，请确保遵循检查-效果-交互模式，并考虑使用重入守卫。
+     * 根据数组参数的长度，发出 {TransferSingle} 或 {TransferBatch} 事件。
      *
-     * Emits either a {TransferSingle} or a {TransferBatch} event, depending on the length of the array arguments.
-     *
-     * Requirements:
-     *
-     * - `ids` and `values` must have the same length.
-     * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155BatchReceived} and return the
-     * acceptance magic value.
+     * 要求：
+     * - `ids` 和 `values` 必须具有相同的长度。
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155BatchReceived} 并返回接受魔法值。
      */
     function safeBatchTransferFrom(
         address from,

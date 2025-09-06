@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC1155/utils/ERC1155Utils.sol)
+// OpenZeppelin 合约 (最后更新于 v5.4.0) (token/ERC1155/utils/ERC1155Utils.sol)
 
 pragma solidity ^0.8.20;
 
@@ -7,20 +7,19 @@ import {IERC1155Receiver} from "../IERC1155Receiver.sol";
 import {IERC1155Errors} from "../../../interfaces/draft-IERC6093.sol";
 
 /**
- * @dev Library that provide common ERC-1155 utility functions.
+ * @dev 提供通用 ERC-1155 实用函数的库。
  *
- * See https://eips.ethereum.org/EIPS/eip-1155[ERC-1155].
+ * 参见 https://eips.ethereum.org/EIPS/eip-1155[ERC-1155]。
  *
- * _Available since v5.1._
+ * _自 v5.1 起可用。_
  */
 library ERC1155Utils {
     /**
-     * @dev Performs an acceptance check for the provided `operator` by calling {IERC1155Receiver-onERC1155Received}
-     * on the `to` address. The `operator` is generally the address that initiated the token transfer (i.e. `msg.sender`).
+     * @dev 通过在 `to` 地址上调用 {IERC1155Receiver-onERC1155Received} 来为提供的 `operator` 执行接受检查。
+     * `operator` 通常是发起代币转移的地址 (即 `msg.sender`)。
      *
-     * The acceptance call is not executed and treated as a no-op if the target address doesn't contain code (i.e. an EOA).
-     * Otherwise, the recipient must implement {IERC1155Receiver-onERC1155Received} and return the acceptance magic value to accept
-     * the transfer.
+     * 如果目标地址不包含代码 (即 EOA)，则不执行接受调用并将其视为空操作。
+     * 否则，接收者必须实现 {IERC1155Receiver-onERC1155Received} 并返回接受魔法值以接受转移。
      */
     function checkOnERC1155Received(
         address operator,
@@ -33,12 +32,12 @@ library ERC1155Utils {
         if (to.code.length > 0) {
             try IERC1155Receiver(to).onERC1155Received(operator, from, id, value, data) returns (bytes4 response) {
                 if (response != IERC1155Receiver.onERC1155Received.selector) {
-                    // Tokens rejected
+                    // 代币被拒绝
                     revert IERC1155Errors.ERC1155InvalidReceiver(to);
                 }
             } catch (bytes memory reason) {
                 if (reason.length == 0) {
-                    // non-IERC1155Receiver implementer
+                    // 非 IERC1155Receiver 实现者
                     revert IERC1155Errors.ERC1155InvalidReceiver(to);
                 } else {
                     assembly ("memory-safe") {
@@ -50,12 +49,11 @@ library ERC1155Utils {
     }
 
     /**
-     * @dev Performs a batch acceptance check for the provided `operator` by calling {IERC1155Receiver-onERC1155BatchReceived}
-     * on the `to` address. The `operator` is generally the address that initiated the token transfer (i.e. `msg.sender`).
+     * @dev 通过在 `to` 地址上调用 {IERC1155Receiver-onERC1155BatchReceived} 来为提供的 `operator` 执行批量接受检查。
+     * `operator` 通常是发起代币转移的地址 (即 `msg.sender`)。
      *
-     * The acceptance call is not executed and treated as a no-op if the target address doesn't contain code (i.e. an EOA).
-     * Otherwise, the recipient must implement {IERC1155Receiver-onERC1155Received} and return the acceptance magic value to accept
-     * the transfer.
+     * 如果目标地址不包含代码 (即 EOA)，则不执行接受调用并将其视为空操作。
+     * 否则，接收者必须实现 {IERC1155Receiver-onERC1155Received} 并返回接受魔法值以接受转移。
      */
     function checkOnERC1155BatchReceived(
         address operator,
@@ -70,12 +68,12 @@ library ERC1155Utils {
                 bytes4 response
             ) {
                 if (response != IERC1155Receiver.onERC1155BatchReceived.selector) {
-                    // Tokens rejected
+                    // 代币被拒绝
                     revert IERC1155Errors.ERC1155InvalidReceiver(to);
                 }
             } catch (bytes memory reason) {
                 if (reason.length == 0) {
-                    // non-IERC1155Receiver implementer
+                    // 非 IERC1155Receiver 实现者
                     revert IERC1155Errors.ERC1155InvalidReceiver(to);
                 } else {
                     assembly ("memory-safe") {

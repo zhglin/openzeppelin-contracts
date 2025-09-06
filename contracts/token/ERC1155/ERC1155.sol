@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC1155/ERC1155.sol)
+// OpenZeppelin 合约 (最后更新于 v5.4.0) (token/ERC1155/ERC1155.sol)
 
 pragma solidity ^0.8.20;
 
@@ -12,23 +12,25 @@ import {Arrays} from "../../utils/Arrays.sol";
 import {IERC1155Errors} from "../../interfaces/draft-IERC6093.sol";
 
 /**
- * @dev Implementation of the basic standard multi-token.
- * See https://eips.ethereum.org/EIPS/eip-1155
- * Originally based on code by Enjin: https://github.com/enjin/erc-1155
+ * @dev 基础标准多代币的实现。
+ * 参见 https://eips.ethereum.org/EIPS/eip-1155
+ * 最初基于 Enjin 的代码：https://github.com/enjin/erc-1155
  */
 abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IERC1155Errors {
     using Arrays for uint256[];
     using Arrays for address[];
 
+    // 代币 ID => 账户地址 => 余额
     mapping(uint256 id => mapping(address account => uint256)) private _balances;
 
+    // 账户地址 => 授权地址 => 批准状态
     mapping(address account => mapping(address operator => bool)) private _operatorApprovals;
 
-    // Used as the URI for all token types by relying on ID substitution, e.g. https://token-cdn-domain/{id}.json
+    // 用作所有代币类型的 URI，依赖于 ID 替换，例如 https://token-cdn-domain/{id}.json
     string private _uri;
 
     /**
-     * @dev See {_setURI}.
+     * @dev 参见 {_setURI}。
      */
     constructor(string memory uri_) {
         _setURI(uri_);
@@ -43,14 +45,12 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev See {IERC1155MetadataURI-uri}.
+     * @dev 参见 {IERC1155MetadataURI-uri}。
      *
-     * This implementation returns the same URI for *all* token types. It relies
-     * on the token type ID substitution mechanism
-     * https://eips.ethereum.org/EIPS/eip-1155#metadata[defined in the ERC].
+     * 此实现为 *所有* 代币类型返回相同的 URI。它依赖于
+     * https://eips.ethereum.org/EIPS/eip-1155#metadata[ERC 中定义的]代币类型 ID 替换机制。
      *
-     * Clients calling this function must replace the `\{id\}` substring with the
-     * actual token type ID.
+     * 调用此函数的客户端必须将 `\{id\}` 子字符串替换为实际的代币类型 ID。
      */
     function uri(uint256 /* id */) public view virtual returns (string memory) {
         return _uri;
@@ -62,11 +62,9 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev See {IERC1155-balanceOfBatch}.
-     *
-     * Requirements:
-     *
-     * - `accounts` and `ids` must have the same length.
+     * @dev 参见 {IERC1155-balanceOfBatch}。
+     * 要求：
+     * - `accounts` 和 `ids` 必须具有相同的长度。
      */
     function balanceOfBatch(
         address[] memory accounts,
@@ -98,6 +96,7 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     /// @inheritdoc IERC1155
     function safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes memory data) public virtual {
         address sender = _msgSender();
+        // 是否授权
         if (from != sender && !isApprovedForAll(from, sender)) {
             revert ERC1155MissingApprovalForAll(sender, from);
         }
@@ -120,24 +119,22 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Transfers a `value` amount of tokens of type `id` from `from` to `to`. Will mint (or burn) if `from`
-     * (or `to`) is the zero address.
-     *
-     * Emits a {TransferSingle} event if the arrays contain one element, and {TransferBatch} otherwise.
-     *
-     * Requirements:
-     *
-     * - If `to` refers to a smart contract, it must implement either {IERC1155Receiver-onERC1155Received}
-     *   or {IERC1155Receiver-onERC1155BatchReceived} and return the acceptance magic value.
-     * - `ids` and `values` must have the same length.
-     *
-     * NOTE: The ERC-1155 acceptance check is not performed in this function. See {_updateWithAcceptanceCheck} instead.
+     * @dev 将 `value` 数量的 `id` 类型代币从 `from` 转移到 `to`。如果 `from`（或 `to`）是零地址，则将铸造（或销毁）。
+     * 如果数组包含一个元素，则发出 {TransferSingle} 事件，否则发出 {TransferBatch}。
+     * 
+     * 要求：
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155Received}
+     *   或 {IERC1155Receiver-onERC1155BatchReceived} 并返回接受魔法值。
+     * - `ids` 和 `values` 必须具有相同的长度。
+     * 
+     * 注意：此函数中不执行 ERC-1155 接受检查。请改用 {_updateWithAcceptanceCheck}。
      */
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal virtual {
         if (ids.length != values.length) {
             revert ERC1155InvalidArrayLength(ids.length, values.length);
         }
 
+        // 操作发起者
         address operator = _msgSender();
 
         for (uint256 i = 0; i < ids.length; ++i) {
@@ -145,21 +142,24 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
             uint256 value = values.unsafeMemoryAccess(i);
 
             if (from != address(0)) {
+                // 减少余额
                 uint256 fromBalance = _balances[id][from];
                 if (fromBalance < value) {
                     revert ERC1155InsufficientBalance(from, fromBalance, value, id);
                 }
                 unchecked {
-                    // Overflow not possible: value <= fromBalance
+                    // 不可能溢出：value <= fromBalance
                     _balances[id][from] = fromBalance - value;
                 }
             }
 
+            // 增加余额
             if (to != address(0)) {
                 _balances[id][to] += value;
             }
         }
 
+        // 处理不同事件
         if (ids.length == 1) {
             uint256 id = ids.unsafeMemoryAccess(0);
             uint256 value = values.unsafeMemoryAccess(0);
@@ -170,13 +170,12 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Version of {_update} that performs the token acceptance check by calling
-     * {IERC1155Receiver-onERC1155Received} or {IERC1155Receiver-onERC1155BatchReceived} on the receiver address if it
-     * contains code (eg. is a smart contract at the moment of execution).
+     * @dev {_update} 的版本，通过在接收者地址上调用
+     * {IERC1155Receiver-onERC1155Received} 或 {IERC1155Receiver-onERC1155BatchReceived} 来执行代币接受检查，
+     * 如果它包含代码（例如，在执行时是智能合约）。
      *
-     * IMPORTANT: Overriding this function is discouraged because it poses a reentrancy risk from the receiver. So any
-     * update to the contract state after this function would break the check-effect-interaction pattern. Consider
-     * overriding {_update} instead.
+     * 重要提示：不鼓励重写此函数，因为它会带来来自接收者的重入风险。
+     * 因此，在此函数之后对合约状态的任何更新都将破坏检查-效果-交互模式。请考虑改为重写 {_update}。
      */
     function _updateWithAcceptanceCheck(
         address from,
@@ -199,16 +198,13 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Transfers a `value` tokens of token type `id` from `from` to `to`.
+     * @dev 将 `value` 个 `id` 类型的代币从 `from` 转移到 `to`。
+     * 发出 {TransferSingle} 事件。
      *
-     * Emits a {TransferSingle} event.
-     *
-     * Requirements:
-     *
-     * - `to` cannot be the zero address.
-     * - `from` must have a balance of tokens of type `id` of at least `value` amount.
-     * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155Received} and return the
-     * acceptance magic value.
+     * 要求：
+     * - `to` 不能是零地址。
+     * - `from` 必须拥有至少 `value` 数量的 `id` 类型代币的余额。
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155Received} 并返回接受魔法值。
      */
     function _safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes memory data) internal {
         if (to == address(0)) {
@@ -217,20 +213,19 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
         if (from == address(0)) {
             revert ERC1155InvalidSender(address(0));
         }
+        // 转换成数组
         (uint256[] memory ids, uint256[] memory values) = _asSingletonArrays(id, value);
         _updateWithAcceptanceCheck(from, to, ids, values, data);
     }
 
     /**
-     * @dev xref:ROOT:erc1155.adoc#batch-operations[Batched] version of {_safeTransferFrom}.
+     * @dev xref:ROOT:erc1155.adoc#batch-operations[批处理] 版本的 {_safeTransferFrom}。
+     * 发出 {TransferBatch} 事件。
      *
-     * Emits a {TransferBatch} event.
-     *
-     * Requirements:
-     *
-     * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155BatchReceived} and return the
-     * acceptance magic value.
-     * - `ids` and `values` must have the same length.
+     * 要求：
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155BatchReceived} 并返回
+     * 接受魔法值。
+     * - `ids` 和 `values` 必须具有相同的长度。
      */
     function _safeBatchTransferFrom(
         address from,
@@ -249,58 +244,50 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Sets a new URI for all token types, by relying on the token type ID
-     * substitution mechanism
-     * https://eips.ethereum.org/EIPS/eip-1155#metadata[defined in the ERC].
+     * @dev 为所有代币类型设置一个新的 URI，依赖于
+     * https://eips.ethereum.org/EIPS/eip-1155#metadata[ERC 中定义的] 代币类型 ID 替换机制。
      *
-     * By this mechanism, any occurrence of the `\{id\}` substring in either the
-     * URI or any of the values in the JSON file at said URI will be replaced by
-     * clients with the token type ID.
+     * 通过此机制，URI 或所述 URI 的 JSON 文件中任何值的 `\{id\}` 子字符串都将被客户端替换为代币类型 ID。
      *
-     * For example, the `https://token-cdn-domain/\{id\}.json` URI would be
-     * interpreted by clients as
+     * 例如，`https://token-cdn-domain/\{id\}.json` URI 将被客户端
+     * 解释为
      * `https://token-cdn-domain/000000000000000000000000000000000000000000000000000000000004cce0.json`
-     * for token type ID 0x4cce0.
+     * 对于代币类型 ID 0x4cce0。
      *
-     * See {uri}.
-     *
-     * Because these URIs cannot be meaningfully represented by the {URI} event,
-     * this function emits no events.
+     * 参见 {uri}。
+     * 因为这些 URI 不能被 {URI} 事件有意义地表示，
+     * 所以此函数不发出任何事件。
      */
     function _setURI(string memory newuri) internal virtual {
         _uri = newuri;
     }
 
     /**
-     * @dev Creates a `value` amount of tokens of type `id`, and assigns them to `to`.
+     * @dev 创建 `value` 数量的 `id` 类型代币，并将其分配给 `to`。
+     * 发出 {TransferSingle} 事件。
      *
-     * Emits a {TransferSingle} event.
-     *
-     * Requirements:
-     *
-     * - `to` cannot be the zero address.
-     * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155Received} and return the
-     * acceptance magic value.
+     * 要求：
+     * - `to` 不能是零地址。
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155Received} 并返回接受魔法值。
      */
     function _mint(address to, uint256 id, uint256 value, bytes memory data) internal {
         if (to == address(0)) {
             revert ERC1155InvalidReceiver(address(0));
         }
+        // 转换成数组
         (uint256[] memory ids, uint256[] memory values) = _asSingletonArrays(id, value);
         _updateWithAcceptanceCheck(address(0), to, ids, values, data);
     }
 
     /**
-     * @dev xref:ROOT:erc1155.adoc#batch-operations[Batched] version of {_mint}.
+     * @dev xref:ROOT:erc1155.adoc#batch-operations[批处理] 版本的 {_mint}。
+     * 发出 {TransferBatch} 事件。
      *
-     * Emits a {TransferBatch} event.
-     *
-     * Requirements:
-     *
-     * - `ids` and `values` must have the same length.
-     * - `to` cannot be the zero address.
-     * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155BatchReceived} and return the
-     * acceptance magic value.
+     * 要求：
+     * - `ids` 和 `values` 必须具有相同的长度。
+     * - `to` 不能是零地址。
+     * - 如果 `to` 指的是一个智能合约，它必须实现 {IERC1155Receiver-onERC1155BatchReceived} 并返回
+     * 接受魔法值。
      */
     function _mintBatch(address to, uint256[] memory ids, uint256[] memory values, bytes memory data) internal {
         if (to == address(0)) {
@@ -310,14 +297,12 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Destroys a `value` amount of tokens of type `id` from `from`
+     * @dev 从 `from` 销毁 `value` 数量的 `id` 类型代币。
+     * 发出 {TransferSingle} 事件。
      *
-     * Emits a {TransferSingle} event.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `from` must have at least `value` amount of tokens of type `id`.
+     * 要求：
+     * - `from` 不能是零地址。
+     * - `from` 必须拥有至少 `value` 数量的 `id` 类型代币。
      */
     function _burn(address from, uint256 id, uint256 value) internal {
         if (from == address(0)) {
@@ -328,15 +313,13 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev xref:ROOT:erc1155.adoc#batch-operations[Batched] version of {_burn}.
+     * @dev xref:ROOT:erc1155.adoc#batch-operations[批处理] 版本的 {_burn}。
+     * 发出 {TransferBatch} 事件。
      *
-     * Emits a {TransferBatch} event.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `from` must have at least `value` amount of tokens of type `id`.
-     * - `ids` and `values` must have the same length.
+     * 要求：
+     * - `from` 不能是零地址。
+     * - `from` 必须拥有至少 `value` 数量的 `id` 类型代币。
+     * - `ids` 和 `values` 必须具有相同的长度。
      */
     function _burnBatch(address from, uint256[] memory ids, uint256[] memory values) internal {
         if (from == address(0)) {
@@ -346,13 +329,10 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Approve `operator` to operate on all of `owner` tokens
-     *
-     * Emits an {ApprovalForAll} event.
-     *
-     * Requirements:
-     *
-     * - `operator` cannot be the zero address.
+     * @dev 批准 `operator` 操作 `owner` 的所有代币。
+     * 发出 {ApprovalForAll} 事件。
+     * 要求：
+     * - `operator` 不能是零地址。
      */
     function _setApprovalForAll(address owner, address operator, bool approved) internal virtual {
         if (operator == address(0)) {
@@ -363,26 +343,26 @@ abstract contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI, IER
     }
 
     /**
-     * @dev Creates an array in memory with only one value for each of the elements provided.
+     * @dev 在内存中创建一个数组，其中每个提供的元素只有一个值。
      */
     function _asSingletonArrays(
         uint256 element1,
         uint256 element2
     ) private pure returns (uint256[] memory array1, uint256[] memory array2) {
         assembly ("memory-safe") {
-            // Load the free memory pointer
+            // 加载空闲内存指针
             array1 := mload(0x40)
-            // Set array length to 1
+            // 将数组长度设置为 1
             mstore(array1, 1)
-            // Store the single element at the next word after the length (where content starts)
+            // 在长度后的下一个字（内容开始处）存储单个元素
             mstore(add(array1, 0x20), element1)
 
-            // Repeat for next array locating it right after the first array
+            // 对下一个数组重复此操作，将其定位在第一个数组之后
             array2 := add(array1, 0x40)
             mstore(array2, 1)
             mstore(add(array2, 0x20), element2)
 
-            // Update the free memory pointer by pointing after the second array
+            // 通过指向第二个数组之后来更新空闲内存指针
             mstore(0x40, add(array2, 0x40))
         }
     }
