@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (interfaces/IERC2981.sol)
+// OpenZeppelin 合约 (最后更新于 v5.4.0) (interfaces/IERC2981.sol)
 
 pragma solidity >=0.6.2;
 
 import {IERC165} from "../utils/introspection/IERC165.sol";
 
 /**
- * @dev Interface for the NFT Royalty Standard.
+ * @dev NFT 版税标准接口。
  *
- * A standardized way to retrieve royalty payment information for non-fungible tokens (NFTs) to enable universal
- * support for royalty payments across all NFT marketplaces and ecosystem participants.
+ * 一种标准化的方式来检索非同质化代币（NFT）的版税支付信息，
+ * 以实现所有 NFT 市场和生态系统参与者对版税支付的通用支持。
  */
 interface IERC2981 is IERC165 {
     /**
-     * @dev Returns how much royalty is owed and to whom, based on a sale price that may be denominated in any unit of
-     * exchange. The royalty amount is denominated and should be paid in that same unit of exchange.
+     * @dev 根据可能以任何交换单位计价的销售价格，返回应支付多少版税以及支付给谁。
+     * 版税金额以该交换单位计价，并应以该相同的交换单位支付。
      *
-     * NOTE: ERC-2981 allows setting the royalty to 100% of the price. In that case all the price would be sent to the
-     * royalty receiver and 0 tokens to the seller. Contracts dealing with royalty should consider empty transfers.
+     * 注意：ERC-2981 允许将版税设置为价格的 100%。在这种情况下，所有价格都将发送给
+     * 版税接收者，而 0 代币发送给卖方。处理版税的合约应考虑空转账。
      */
     function royaltyInfo(
         uint256 tokenId,

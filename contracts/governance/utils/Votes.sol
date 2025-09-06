@@ -30,6 +30,8 @@ import {Time} from "../../utils/types/Time.sol";
  * 安全性：防止通过闪电贷等金融工具在短时间内获得大量虚假投票权来操纵治理。
  * 公平性：确保投票权与对协议的长期持有和承诺成正比，而不是临时的资金实力。
  * 防止双重投票：防止用户在投票后转移代币给他人，让同一批代币在同一提案中被多次使用。
+ * 
+ * 参与投票的用户需要调用_moveDelegateVotes进行投票权的转移，这样才能获取到初始票数.
  */
 
 abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
@@ -38,10 +40,13 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     bytes32 private constant DELEGATION_TYPEHASH =
         keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
 
+    // account对应的委托人
     mapping(address account => address) private _delegatee;
 
+    // 记录每个委托人的投票检查点
     mapping(address delegatee => Checkpoints.Trace208) private _delegateCheckpoints;
 
+    // 记录总投票供应量的检查点
     Checkpoints.Trace208 private _totalCheckpoints;
 
     /**

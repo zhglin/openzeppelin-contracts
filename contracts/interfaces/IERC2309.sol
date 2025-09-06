@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (interfaces/IERC2309.sol)
+// OpenZeppelin 合约 (最后更新于 v5.4.0) (interfaces/IERC2309.sol)
 
 pragma solidity >=0.4.11;
 
 /**
- * @dev ERC-2309: ERC-721 Consecutive Transfer Extension.
+ * @dev ERC-2309: ERC-721 连续转移扩展。
  */
 interface IERC2309 {
     /**
-     * @dev Emitted when the tokens from `fromTokenId` to `toTokenId` are transferred from `fromAddress` to `toAddress`.
+     * @dev 当从 `fromTokenId` 到 `toTokenId` 的代币从 `fromAddress` 转移到 `toAddress` 时发出。
      */
     event ConsecutiveTransfer(
         uint256 indexed fromTokenId,

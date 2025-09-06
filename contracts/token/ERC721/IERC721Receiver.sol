@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (token/ERC721/IERC721Receiver.sol)
+// OpenZeppelin 合约 (最后更新于 v5.4.0) (token/ERC721/IERC721Receiver.sol)
 
 pragma solidity >=0.5.0;
 
 /**
- * @title ERC-721 token receiver interface
- * @dev Interface for any contract that wants to support safeTransfers
- * from ERC-721 asset contracts.
+ * @title ERC-721 代币接收者接口
+ * @dev 任何希望支持从 ERC-721 资产合约进行 safeTransfers 的合约的接口。
  */
 interface IERC721Receiver {
     /**
-     * @dev Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom}
-     * by `operator` from `from`, this function is called.
+     * @dev 每当一个 {IERC721} `tokenId` 代币通过 {IERC721-safeTransferFrom} 由 `operator` 从 `from` 转移到此合约时，
+     * 此函数就会被调用。
      *
-     * It must return its Solidity selector to confirm the token transfer.
-     * If any other value is returned or the interface is not implemented by the recipient, the transfer will be
-     * reverted.
+     * 它必须返回其 Solidity 选择器以确认代币转移。
+     * 如果返回任何其他值或接收者未实现该接口，则转移将被回滚。
      *
-     * The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`.
+     * 在 Solidity 中可以使用 `IERC721Receiver.onERC721Received.selector` 获取选择器。
      */
     function onERC721Received(
         address operator,
