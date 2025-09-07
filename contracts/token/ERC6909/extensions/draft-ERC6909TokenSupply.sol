@@ -7,8 +7,8 @@ import {ERC6909} from "../draft-ERC6909.sol";
 import {IERC6909TokenSupply} from "../../../interfaces/draft-IERC6909.sol";
 
 /**
- * @dev Implementation of the Token Supply extension defined in ERC6909.
- * Tracks the total supply of each token id individually.
+ * @dev ERC6909中定义的代币供应扩展的实现。
+ * 单独跟踪每个代币id的总供应量。
  */
 contract ERC6909TokenSupply is ERC6909, IERC6909TokenSupply {
     mapping(uint256 id => uint256) private _totalSupplies;
@@ -18,11 +18,12 @@ contract ERC6909TokenSupply is ERC6909, IERC6909TokenSupply {
         return _totalSupplies[id];
     }
 
-    /// @dev Override the `_update` function to update the total supply of each token id as necessary.
+    /// @dev 重写 `_update` 函数，以根据需要更新每个代币id的总供应量。
     function _update(address from, address to, uint256 id, uint256 amount) internal virtual override {
         super._update(from, to, id, amount);
 
         if (from == address(0)) {
+            // 溢出会revoke
             _totalSupplies[id] += amount;
         }
         if (to == address(0)) {

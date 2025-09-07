@@ -7,16 +7,16 @@ import {ERC6909} from "../draft-ERC6909.sol";
 import {IERC6909ContentURI} from "../../../interfaces/draft-IERC6909.sol";
 
 /**
- * @dev Implementation of the Content URI extension defined in ERC6909.
+ * @dev ERC6909中定义的内容URI扩展的实现。
  */
 contract ERC6909ContentURI is ERC6909, IERC6909ContentURI {
     string private _contractURI;
     mapping(uint256 id => string) private _tokenURIs;
 
-    /// @dev Event emitted when the contract URI is changed. See https://eips.ethereum.org/EIPS/eip-7572[ERC-7572] for details.
+    /// @dev 当合约URI更改时触发的事件。详见 https://eips.ethereum.org/EIPS/eip-7572[ERC-7572]。
     event ContractURIUpdated();
 
-    /// @dev See {IERC1155-URI}
+    /// @dev 参见 {IERC1155-URI}
     event URI(string value, uint256 indexed id);
 
     /// @inheritdoc IERC6909ContentURI
@@ -30,9 +30,8 @@ contract ERC6909ContentURI is ERC6909, IERC6909ContentURI {
     }
 
     /**
-     * @dev Sets the {contractURI} for the contract.
-     *
-     * Emits a {ContractURIUpdated} event.
+     * @dev 设置合约的 {contractURI}。
+     * 触发 {ContractURIUpdated} 事件。
      */
     function _setContractURI(string memory newContractURI) internal virtual {
         _contractURI = newContractURI;
@@ -41,9 +40,8 @@ contract ERC6909ContentURI is ERC6909, IERC6909ContentURI {
     }
 
     /**
-     * @dev Sets the {tokenURI} for a given token of type `id`.
-     *
-     * Emits a {URI} event.
+     * @dev 为给定类型 `id` 的代币设置 {tokenURI}。
+     * 触发 {URI} 事件。
      */
     function _setTokenURI(uint256 id, string memory newTokenURI) internal virtual {
         _tokenURIs[id] = newTokenURI;
