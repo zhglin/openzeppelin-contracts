@@ -6,39 +6,33 @@ pragma solidity ^0.8.20;
 import {Ownable} from "./Ownable.sol";
 
 /**
- * @dev Contract module which provides access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
+ * @dev 合约模块，提供访问控制机制，
+ * 其中有一个帐户（所有者）可以被授予对特定函数的独占访问权。
  *
- * This extension of the {Ownable} contract includes a two-step mechanism to transfer
- * ownership, where the new owner must call {acceptOwnership} in order to replace the
- * old one. This can help prevent common mistakes, such as transfers of ownership to
- * incorrect accounts, or to contracts that are unable to interact with the
- * permission system.
+ * 这个 {Ownable} 合约的扩展包括一个两步所有权转移机制，
+ * // 新所有者必须调用 {acceptOwnership} 才能替换旧所有者。
+ * // 这有助于防止常见错误，例如将所有权转移到不正确的帐户，或转移到无法与权限系统交互的合约。
  *
- * The initial owner is specified at deployment time in the constructor for `Ownable`. This
- * can later be changed with {transferOwnership} and {acceptOwnership}.
- *
- * This module is used through inheritance. It will make available all functions
- * from parent (Ownable).
+ * 初始所有者在部署时在 `Ownable` 的构造函数中指定。之后可以通过 {transferOwnership} 和 {acceptOwnership} 更改。
+ * 此模块通过继承使用。它将提供父合约（Ownable）的所有功能。
  */
 abstract contract Ownable2Step is Ownable {
+    // 待定所有者的地址
     address private _pendingOwner;
 
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
     /**
-     * @dev Returns the address of the pending owner.
+     * @dev 返回待定所有者的地址。
      */
     function pendingOwner() public view virtual returns (address) {
         return _pendingOwner;
     }
 
     /**
-     * @dev Starts the ownership transfer of the contract to a new account. Replaces the pending transfer if there is one.
-     * Can only be called by the current owner.
-     *
-     * Setting `newOwner` to the zero address is allowed; this can be used to cancel an initiated ownership transfer.
+     * @dev 开始将合约的所有权转移给一个新帐户。如果存在待定转移，则替换它。
+     * 只能由当前所有者调用。
+     * 允许将 `newOwner` 设置为零地址；这可用于取消已发起的所有权转移。
      */
     function transferOwnership(address newOwner) public virtual override onlyOwner {
         _pendingOwner = newOwner;
@@ -46,8 +40,8 @@ abstract contract Ownable2Step is Ownable {
     }
 
     /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`) and deletes any pending owner.
-     * Internal function without access restriction.
+     * @dev 将合约的所有权转移给一个新帐户 (`newOwner`) 并删除任何待定所有者。
+     * 无访问限制的内部函数。
      */
     function _transferOwnership(address newOwner) internal virtual override {
         delete _pendingOwner;
@@ -55,7 +49,7 @@ abstract contract Ownable2Step is Ownable {
     }
 
     /**
-     * @dev The new owner accepts the ownership transfer.
+     * @dev 新所有者接受所有权转移。
      */
     function acceptOwnership() public virtual {
         address sender = _msgSender();

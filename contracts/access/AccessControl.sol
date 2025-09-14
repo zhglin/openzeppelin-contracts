@@ -8,22 +8,18 @@ import {Context} from "../utils/Context.sol";
 import {IERC165, ERC165} from "../utils/introspection/ERC165.sol";
 
 /**
- * @dev Contract module that allows children to implement role-based access
- * control mechanisms. This is a lightweight version that doesn't allow enumerating role
- * members except through off-chain means by accessing the contract event logs. Some
- * applications may benefit from on-chain enumerability, for those cases see
- * {AccessControlEnumerable}.
+ * @dev 合约模块，允许子合约实现基于角色的访问控制机制。
+ * 这是一个轻量级版本，不允许枚举角色成员，除非通过访问合约事件日志的链下方式。
+ * 某些应用可能受益于链上可枚举性，对于这些情况，请参见 {AccessControlEnumerable}。
  *
- * Roles are referred to by their `bytes32` identifier. These should be exposed
- * in the external API and be unique. The best way to achieve this is by
- * using `public constant` hash digests:
+ * 角色通过其 `bytes32` 标识符引用。这些标识符应在外部API中公开且唯一。
+ * 实现这一点的最佳方法是使用 `public constant` 哈希摘要：
  *
  * ```solidity
  * bytes32 public constant MY_ROLE = keccak256("MY_ROLE");
  * ```
  *
- * Roles can be used to represent a set of permissions. To restrict access to a
- * function call, use {hasRole}:
+ * 角色可用于表示一组权限。要限制对函数调用的访问，请使用 {hasRole}：
  *
  * ```solidity
  * function foo() public {
@@ -32,33 +28,39 @@ import {IERC165, ERC165} from "../utils/introspection/ERC165.sol";
  * }
  * ```
  *
- * Roles can be granted and revoked dynamically via the {grantRole} and
- * {revokeRole} functions. Each role has an associated admin role, and only
- * accounts that have a role's admin role can call {grantRole} and {revokeRole}.
+ * 角色可以通过 {grantRole} 和 {revokeRole} 函数动态授予和撤销。
+ * 每个角色都有一个关联的管理员角色，只有拥有角色管理员角色的帐户才能调用 {grantRole} 和 {revokeRole}。
  *
- * By default, the admin role for all roles is `DEFAULT_ADMIN_ROLE`, which means
- * that only accounts with this role will be able to grant or revoke other
- * roles. More complex role relationships can be created by using
- * {_setRoleAdmin}.
+ * 默认情况下，所有角色的管理员角色都是 `DEFAULT_ADMIN_ROLE`，这意味着只有拥有此角色的帐户才能授予或撤销其他角色。
+ * 可以使用 {_setRoleAdmin} 创建更复杂的角色关系。
  *
- * WARNING: The `DEFAULT_ADMIN_ROLE` is also its own admin: it has permission to
- * grant and revoke this role. Extra precautions should be taken to secure
- * accounts that have been granted it. We recommend using {AccessControlDefaultAdminRules}
- * to enforce additional security measures for this role.
+ * 警告：`DEFAULT_ADMIN_ROLE` 也是其自身的管理员：它有权授予和撤销此角色。
+ * 应采取额外的预防措施来保护已被授予该角色的帐户。
+ * 我们建议使用 {AccessControlDefaultAdminRules} 来为此角色强制执行额外的安全措施。
  */
 abstract contract AccessControl is Context, IAccessControl, ERC165 {
+    // 每个角色的数据结构
     struct RoleData {
-        mapping(address account => bool) hasRole;
-        bytes32 adminRole;
+        mapping(address account => bool) hasRole; // 角色成员映射
+        bytes32 adminRole;  // 该角色的管理员角色, 这里也是角色
     }
 
-    mapping(bytes32 role => RoleData) private _roles;
+    // 角色标识符到其数据的映射
+    mapping(bytes32 role => RoleData) private _roles; 
 
+    /**  
+    * 默认管理员角色的标识符
+    * 对于 adminRole 这个 bytes32 类型的成员，它的默认值是 0x00。
+    * 所以，任何新创建的角色，其管理员角色（adminRole）默认就是 `DEFAULT_ADMIN_ROLE`。你不需要手动去设置它，这是 Solidity 底层机制保证的。
+    * 
+    * DEFAULT_ADMIN_ROLE 最直接、最明确的“被使用”的场景，通常是在合约的 constructor (构造函数) 中。
+    * 合约部署者需要将 DEFAULT_ADMIN_ROLE授予一个初始的管理员账户（通常是部署者自己）。
+    */
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
 
     /**
-     * @dev Modifier that checks that an account has a specific role. Reverts
-     * with an {AccessControlUnauthorizedAccount} error including the required role.
+     * @dev 检查帐户是否具有特定角色的修饰器。
+     * 如果没有，则以 {AccessControlUnauthorizedAccount} 错误回滚，并包含所需角色。
      */
     modifier onlyRole(bytes32 role) {
         _checkRole(role);
@@ -71,23 +73,22 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
     }
 
     /**
-     * @dev Returns `true` if `account` has been granted `role`.
+     * @dev 如果 `account` 已被授予 `role`，则返回 `true`。
      */
     function hasRole(bytes32 role, address account) public view virtual returns (bool) {
         return _roles[role].hasRole[account];
     }
 
     /**
-     * @dev Reverts with an {AccessControlUnauthorizedAccount} error if `_msgSender()`
-     * is missing `role`. Overriding this function changes the behavior of the {onlyRole} modifier.
+     * @dev 如果 `_msgSender()` 缺少 `role`，则以 {AccessControlUnauthorizedAccount} 错误回滚。
+     * 重写此函数会更改 {onlyRole} 修饰器的行为。
      */
     function _checkRole(bytes32 role) internal view virtual {
         _checkRole(role, _msgSender());
     }
 
     /**
-     * @dev Reverts with an {AccessControlUnauthorizedAccount} error if `account`
-     * is missing `role`.
+     * @dev 如果 `account` 缺少 `role`，则以 {AccessControlUnauthorizedAccount} 错误回滚。
      */
     function _checkRole(bytes32 role, address account) internal view virtual {
         if (!hasRole(role, account)) {
@@ -96,63 +97,46 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
     }
 
     /**
-     * @dev Returns the admin role that controls `role`. See {grantRole} and
-     * {revokeRole}.
-     *
-     * To change a role's admin, use {_setRoleAdmin}.
+     * @dev 返回控制 `role` 的管理员角色。参见 {grantRole} 和 {revokeRole}。
+     * 要更改角色的管理员，请使用 {_setRoleAdmin}。
      */
     function getRoleAdmin(bytes32 role) public view virtual returns (bytes32) {
         return _roles[role].adminRole;
     }
 
     /**
-     * @dev Grants `role` to `account`.
-     *
-     * If `account` had not been already granted `role`, emits a {RoleGranted}
-     * event.
-     *
-     * Requirements:
-     *
-     * - the caller must have ``role``'s admin role.
-     *
-     * May emit a {RoleGranted} event.
+     * @dev 将 `role` 授予 `account`。
+     * 如果 `account` 尚未被授予 `role`，则触发 {RoleGranted} 事件。
+     * 要求：
+     * - 调用者必须拥有 `role` 的管理员角色。
+     * 可能触发 {RoleGranted} 事件。
      */
     function grantRole(bytes32 role, address account) public virtual onlyRole(getRoleAdmin(role)) {
         _grantRole(role, account);
     }
 
     /**
-     * @dev Revokes `role` from `account`.
-     *
-     * If `account` had been granted `role`, emits a {RoleRevoked} event.
-     *
-     * Requirements:
-     *
-     * - the caller must have ``role``'s admin role.
-     *
-     * May emit a {RoleRevoked} event.
+     * @dev 从 `account` 撤销 `role`。
+     * 如果 `account` 已被授予 `role`，则触发 {RoleRevoked} 事件。
+     * 要求：
+     * - 调用者必须拥有 `role` 的管理员角色。
+     * 可能触发 {RoleRevoked} 事件。
      */
     function revokeRole(bytes32 role, address account) public virtual onlyRole(getRoleAdmin(role)) {
         _revokeRole(role, account);
     }
 
     /**
-     * @dev Revokes `role` from the calling account.
-     *
-     * Roles are often managed via {grantRole} and {revokeRole}: this function's
-     * purpose is to provide a mechanism for accounts to lose their privileges
-     * if they are compromised (such as when a trusted device is misplaced).
-     *
-     * If the calling account had been revoked `role`, emits a {RoleRevoked}
-     * event.
-     *
-     * Requirements:
-     *
-     * - the caller must be `callerConfirmation`.
-     *
-     * May emit a {RoleRevoked} event.
+     * @dev 从调用帐户中撤销 `role`。
+     * 角色通常通过 {grantRole} 和 {revokeRole} 进行管理：
+     * 此函数的目的是为帐户提供一种在被盗用（例如当受信任的设备丢失时）时放弃其权限的机制。
+     * 如果调用帐户的 `role` 已被撤销，则触发 {RoleRevoked} 事件。
+     * 要求：
+     * - 调用者必须是 `callerConfirmation`。
+     * 可能触发 {RoleRevoked} 事件。
      */
     function renounceRole(bytes32 role, address callerConfirmation) public virtual {
+        // 只能由账户本身调用
         if (callerConfirmation != _msgSender()) {
             revert AccessControlBadConfirmation();
         }
@@ -161,9 +145,8 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
     }
 
     /**
-     * @dev Sets `adminRole` as ``role``'s admin role.
-     *
-     * Emits a {RoleAdminChanged} event.
+     * @dev 将 `adminRole` 设置为 `role` 的管理员角色。
+     * 触发 {RoleAdminChanged} 事件。
      */
     function _setRoleAdmin(bytes32 role, bytes32 adminRole) internal virtual {
         bytes32 previousAdminRole = getRoleAdmin(role);
@@ -172,11 +155,9 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
     }
 
     /**
-     * @dev Attempts to grant `role` to `account` and returns a boolean indicating if `role` was granted.
-     *
-     * Internal function without access restriction.
-     *
-     * May emit a {RoleGranted} event.
+     * @dev 尝试将 `role` 授予 `account`，并返回一个布尔值，指示是否已授予 `role`。
+     * 无访问限制的内部函数。
+     * 可能触发 {RoleGranted} 事件。
      */
     function _grantRole(bytes32 role, address account) internal virtual returns (bool) {
         if (!hasRole(role, account)) {
@@ -189,11 +170,9 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
     }
 
     /**
-     * @dev Attempts to revoke `role` from `account` and returns a boolean indicating if `role` was revoked.
-     *
-     * Internal function without access restriction.
-     *
-     * May emit a {RoleRevoked} event.
+     * @dev 尝试从 `account` 撤销 `role`，并返回一个布尔值，指示是否已撤销 `role`。
+     * 无访问限制的内部函数。
+     * 可能触发 {RoleRevoked} 事件。
      */
     function _revokeRole(bytes32 role, address account) internal virtual returns (bool) {
         if (hasRole(role, account)) {

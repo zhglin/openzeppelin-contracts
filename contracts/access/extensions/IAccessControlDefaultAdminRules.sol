@@ -6,187 +6,182 @@ pragma solidity >=0.8.4;
 import {IAccessControl} from "../IAccessControl.sol";
 
 /**
- * @dev External interface of AccessControlDefaultAdminRules declared to support ERC-165 detection.
+ * @dev 为支持ERC-165检测而声明的AccessControlDefaultAdminRules的外部接口。
  */
 interface IAccessControlDefaultAdminRules is IAccessControl {
     /**
-     * @dev The new default admin is not a valid default admin.
+     * @dev 新的默认管理员不是一个有效的默认管理员。
      */
     error AccessControlInvalidDefaultAdmin(address defaultAdmin);
 
     /**
-     * @dev At least one of the following rules was violated:
+     * @dev 至少违反了以下规则之一：
      *
-     * - The `DEFAULT_ADMIN_ROLE` must only be managed by itself.
-     * - The `DEFAULT_ADMIN_ROLE` must only be held by one account at the time.
-     * - Any `DEFAULT_ADMIN_ROLE` transfer must be in two delayed steps.
+     * - `DEFAULT_ADMIN_ROLE` 只能由其自身管理。
+     * - `DEFAULT_ADMIN_ROLE` 在同一时间只能由一个帐户持有。
+     * - 任何 `DEFAULT_ADMIN_ROLE` 的转移都必须分两个延迟步骤进行。
      */
     error AccessControlEnforcedDefaultAdminRules();
 
     /**
-     * @dev The delay for transferring the default admin delay is enforced and
-     * the operation must wait until `schedule`.
+     * @dev 转移默认管理员延迟的延迟被强制执行，
+     * 操作必须等到 `schedule`。
      *
-     * NOTE: `schedule` can be 0 indicating there's no transfer scheduled.
+     * 注意：`schedule` 可以为 0，表示没有计划的转移。
      */
     error AccessControlEnforcedDefaultAdminDelay(uint48 schedule);
 
     /**
-     * @dev Emitted when a {defaultAdmin} transfer is started, setting `newAdmin` as the next
-     * address to become the {defaultAdmin} by calling {acceptDefaultAdminTransfer} only after `acceptSchedule`
-     * passes.
+     * @dev 当 {defaultAdmin} 转移开始时触发，将 `newAdmin` 设置为下一个
+     * 通过调用 {acceptDefaultAdminTransfer} 成为 {defaultAdmin} 的地址，但仅在 `acceptSchedule`
+     * 过后。
      */
     event DefaultAdminTransferScheduled(address indexed newAdmin, uint48 acceptSchedule);
 
     /**
-     * @dev Emitted when a {pendingDefaultAdmin} is reset if it was never accepted, regardless of its schedule.
+     * @dev 当一个从未被接受的 {pendingDefaultAdmin} 被重置时触发，无论其计划如何。
      */
     event DefaultAdminTransferCanceled();
 
     /**
-     * @dev Emitted when a {defaultAdminDelay} change is started, setting `newDelay` as the next
-     * delay to be applied between default admin transfer after `effectSchedule` has passed.
+     * @dev 当 {defaultAdminDelay} 更改开始时触发，将 `newDelay` 设置为下一个
+     * 在 `effectSchedule` 过后应用于默认管理员转移之间的延迟。
      */
     event DefaultAdminDelayChangeScheduled(uint48 newDelay, uint48 effectSchedule);
 
     /**
-     * @dev Emitted when a {pendingDefaultAdminDelay} is reset if its schedule didn't pass.
+     * @dev 当一个 {pendingDefaultAdminDelay} 的计划没有通过时被重置时触发。
      */
     event DefaultAdminDelayChangeCanceled();
 
     /**
-     * @dev Returns the address of the current `DEFAULT_ADMIN_ROLE` holder.
+     * @dev 返回当前 `DEFAULT_ADMIN_ROLE` 持有者的地址。
      */
     function defaultAdmin() external view returns (address);
 
     /**
-     * @dev Returns a tuple of a `newAdmin` and an accept schedule.
-     *
-     * After the `schedule` passes, the `newAdmin` will be able to accept the {defaultAdmin} role
-     * by calling {acceptDefaultAdminTransfer}, completing the role transfer.
-     *
-     * A zero value only in `acceptSchedule` indicates no pending admin transfer.
-     *
-     * NOTE: A zero address `newAdmin` means that {defaultAdmin} is being renounced.
+     * @dev 返回一个 `newAdmin` 和一个接受计划的元组。
+     * 在 `schedule` 过后，`newAdmin` 将能够通过调用 {acceptDefaultAdminTransfer}
+     * 接受 {defaultAdmin} 角色，从而完成角色转移。
+     * `acceptSchedule` 中的零值表示没有待处理的管理员转移。
+     * 
+     * 注意：零地址 `newAdmin` 表示正在放弃 {defaultAdmin}。
      */
     function pendingDefaultAdmin() external view returns (address newAdmin, uint48 acceptSchedule);
 
     /**
-     * @dev Returns the delay required to schedule the acceptance of a {defaultAdmin} transfer started.
+     * @dev 返回开始的 {defaultAdmin} 转移接受计划所需的延迟。
      *
-     * This delay will be added to the current timestamp when calling {beginDefaultAdminTransfer} to set
-     * the acceptance schedule.
+     * 在调用 {beginDefaultAdminTransfer} 设置接受计划时，此延迟将添加到当前时间戳。
      *
-     * NOTE: If a delay change has been scheduled, it will take effect as soon as the schedule passes, making this
-     * function returns the new delay. See {changeDefaultAdminDelay}.
+     * 注意：如果已计划延迟更改，它将在计划通过后立即生效，
+     * 使此函数返回新的延迟。参见 {changeDefaultAdminDelay}。
      */
     function defaultAdminDelay() external view returns (uint48);
 
     /**
-     * @dev Returns a tuple of `newDelay` and an effect schedule.
+     * @dev 返回一个 `newDelay` 和一个生效计划的元组。
      *
-     * After the `schedule` passes, the `newDelay` will get into effect immediately for every
-     * new {defaultAdmin} transfer started with {beginDefaultAdminTransfer}.
+     * 在 `schedule` 过后，`newDelay` 将立即对通过 {beginDefaultAdminTransfer}
+     * 开始的每个新的 {defaultAdmin} 转移生效。
      *
-     * A zero value only in `effectSchedule` indicates no pending delay change.
+     * `effectSchedule` 中的零值表示没有待处理的延迟更改。
      *
-     * NOTE: A zero value only for `newDelay` means that the next {defaultAdminDelay}
-     * will be zero after the effect schedule.
+     * 注意：仅 `newDelay` 的零值表示在生效计划之后，
+     * 下一个 {defaultAdminDelay} 将为零。
      */
     function pendingDefaultAdminDelay() external view returns (uint48 newDelay, uint48 effectSchedule);
 
     /**
-     * @dev Starts a {defaultAdmin} transfer by setting a {pendingDefaultAdmin} scheduled for acceptance
-     * after the current timestamp plus a {defaultAdminDelay}.
+     * @dev 通过设置一个在当前时间戳加上 {defaultAdminDelay} 之后
+     * 计划接受的 {pendingDefaultAdmin} 来开始 {defaultAdmin} 转移。
      *
-     * Requirements:
+     * 要求：
      *
-     * - Only can be called by the current {defaultAdmin}.
+     * - 只能由当前 {defaultAdmin} 调用。
      *
-     * Emits a DefaultAdminRoleChangeStarted event.
+     * 触发 DefaultAdminRoleChangeStarted 事件。
      */
     function beginDefaultAdminTransfer(address newAdmin) external;
 
     /**
-     * @dev Cancels a {defaultAdmin} transfer previously started with {beginDefaultAdminTransfer}.
+     * @dev 取消先前通过 {beginDefaultAdminTransfer} 开始的 {defaultAdmin} 转移。
      *
-     * A {pendingDefaultAdmin} not yet accepted can also be cancelled with this function.
+     * 尚未接受的 {pendingDefaultAdmin} 也可以通过此函数取消。
      *
-     * Requirements:
+     * 要求：
      *
-     * - Only can be called by the current {defaultAdmin}.
+     * - 只能由当前 {defaultAdmin} 调用。
      *
-     * May emit a DefaultAdminTransferCanceled event.
+     * 可能触发 DefaultAdminTransferCanceled 事件。
      */
     function cancelDefaultAdminTransfer() external;
 
     /**
-     * @dev Completes a {defaultAdmin} transfer previously started with {beginDefaultAdminTransfer}.
+     * @dev 完成先前通过 {beginDefaultAdminTransfer} 开始的 {defaultAdmin} 转移。
      *
-     * After calling the function:
+     * 调用函数后：
      *
-     * - `DEFAULT_ADMIN_ROLE` should be granted to the caller.
-     * - `DEFAULT_ADMIN_ROLE` should be revoked from the previous holder.
-     * - {pendingDefaultAdmin} should be reset to zero values.
+     * - `DEFAULT_ADMIN_ROLE` 应授予调用者。
+     * - `DEFAULT_ADMIN_ROLE` 应从前一个持有者那里撤销。
+     * - {pendingDefaultAdmin} 应重置为零值。
      *
-     * Requirements:
+     * 要求：
      *
-     * - Only can be called by the {pendingDefaultAdmin}'s `newAdmin`.
-     * - The {pendingDefaultAdmin}'s `acceptSchedule` should've passed.
+     * - 只能由 {pendingDefaultAdmin} 的 `newAdmin` 调用。
+     * - {pendingDefaultAdmin} 的 `acceptSchedule` 应该已经过去。
      */
     function acceptDefaultAdminTransfer() external;
 
     /**
-     * @dev Initiates a {defaultAdminDelay} update by setting a {pendingDefaultAdminDelay} scheduled for getting
-     * into effect after the current timestamp plus a {defaultAdminDelay}.
+     * @dev 通过设置一个在当前时间戳加上 {defaultAdminDelay} 之后
+     * 计划生效的 {pendingDefaultAdminDelay} 来启动 {defaultAdminDelay} 更新。
      *
-     * This function guarantees that any call to {beginDefaultAdminTransfer} done between the timestamp this
-     * method is called and the {pendingDefaultAdminDelay} effect schedule will use the current {defaultAdminDelay}
-     * set before calling.
+     * 此函数保证，在此方法被调用的时间戳和 {pendingDefaultAdminDelay}
+     * 生效计划之间完成的任何对 {beginDefaultAdminTransfer} 的调用，
+     * 都将使用调用前设置的当前 {defaultAdminDelay}。
      *
-     * The {pendingDefaultAdminDelay}'s effect schedule is defined in a way that waiting until the schedule and then
-     * calling {beginDefaultAdminTransfer} with the new delay will take at least the same as another {defaultAdmin}
-     * complete transfer (including acceptance).
+     * {pendingDefaultAdminDelay} 的生效计划的定义方式是，
+     * 等到计划时间然后用新的延迟调用 {beginDefaultAdminTransfer}，
+     * 将至少花费与另一次完整的 {defaultAdmin} 转移（包括接受）相同的时间。
      *
-     * The schedule is designed for two scenarios:
+     * 该计划专为两种情况设计：
      *
-     * - When the delay is changed for a larger one the schedule is `block.timestamp + newDelay` capped by
-     * {defaultAdminDelayIncreaseWait}.
-     * - When the delay is changed for a shorter one, the schedule is `block.timestamp + (current delay - new delay)`.
+     * - 当延迟更改为更长时，计划是 `block.timestamp + newDelay`，上限为 {defaultAdminDelayIncreaseWait}。
+     * - 当延迟更改为更短时，计划是 `block.timestamp + (current delay - new delay)`。
      *
-     * A {pendingDefaultAdminDelay} that never got into effect will be canceled in favor of a new scheduled change.
+     * 一个从未生效的 {pendingDefaultAdminDelay} 将被取消，以支持新的计划更改。
      *
-     * Requirements:
+     * 要求：
      *
-     * - Only can be called by the current {defaultAdmin}.
+     * - 只能由当前 {defaultAdmin} 调用。
      *
-     * Emits a DefaultAdminDelayChangeScheduled event and may emit a DefaultAdminDelayChangeCanceled event.
+     * 触发 DefaultAdminDelayChangeScheduled 事件，并可能触发 DefaultAdminDelayChangeCanceled 事件。
      */
     function changeDefaultAdminDelay(uint48 newDelay) external;
 
     /**
-     * @dev Cancels a scheduled {defaultAdminDelay} change.
+     * @dev 取消计划的 {defaultAdminDelay} 更改。
      *
-     * Requirements:
+     * 要求：
      *
-     * - Only can be called by the current {defaultAdmin}.
+     * - 只能由当前 {defaultAdmin} 调用。
      *
-     * May emit a DefaultAdminDelayChangeCanceled event.
+     * 可能触发 DefaultAdminDelayChangeCanceled 事件。
      */
     function rollbackDefaultAdminDelay() external;
 
     /**
-     * @dev Maximum time in seconds for an increase to {defaultAdminDelay} (that is scheduled using {changeDefaultAdminDelay})
-     * to take effect. Default to 5 days.
+     * @dev {defaultAdminDelay} 增加（即使用 {changeDefaultAdminDelay} 计划的）生效的最长时间（秒）。默认为 5 天。
      *
-     * When the {defaultAdminDelay} is scheduled to be increased, it goes into effect after the new delay has passed with
-     * the purpose of giving enough time for reverting any accidental change (i.e. using milliseconds instead of seconds)
-     * that may lock the contract. However, to avoid excessive schedules, the wait is capped by this function and it can
-     * be overrode for a custom {defaultAdminDelay} increase scheduling.
+     * 当 {defaultAdminDelay} 计划增加时，它会在新延迟过去后生效，
+     * 目的是为恢复任何意外更改（例如使用毫秒而不是秒）留出足够的时间，
+     * 这可能会锁定合约。但是，为避免过多的计划，等待时间由此函数限制，
+     * 并且可以为自定义的 {defaultAdminDelay} 增加计划重写它。
      *
-     * IMPORTANT: Make sure to add a reasonable amount of time while overriding this value, otherwise,
-     * there's a risk of setting a high new delay that goes into effect almost immediately without the
-     * possibility of human intervention in the case of an input error (eg. set milliseconds instead of seconds).
+     * 重要提示：重写此值时，请确保添加合理的时间量，否则，
+     * 如果输入错误（例如设置毫秒而不是秒），则存在设置高新延迟的风险，
+     * 该延迟几乎立即生效，而没有人工干预的可能性。
      */
     function defaultAdminDelayIncreaseWait() external view returns (uint48);
 }

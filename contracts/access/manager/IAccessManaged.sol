@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (access/manager/IAccessManaged.sol)
+// OpenZeppelin 合约（最后更新于 v5.4.0）(access/manager/IAccessManaged.sol)
 
 pragma solidity >=0.8.4;
 
 interface IAccessManaged {
     /**
-     * @dev Authority that manages this contract was updated.
+     * @dev 管理此合约的权限地址已更新。
      */
     event AuthorityUpdated(address authority);
 
@@ -14,19 +14,18 @@ interface IAccessManaged {
     error AccessManagedInvalidAuthority(address authority);
 
     /**
-     * @dev Returns the current authority.
+     * @dev 返回当前的权限地址。
      */
     function authority() external view returns (address);
 
     /**
-     * @dev Transfers control to a new authority. The caller must be the current authority.
+     * @dev 将控制权转移给新的权限地址。调用者必须是当前的权限地址。
      */
     function setAuthority(address) external;
 
     /**
-     * @dev Returns true only in the context of a delayed restricted call, at the moment that the scheduled operation is
-     * being consumed. Prevents denial of service for delayed restricted calls in the case that the contract performs
-     * attacker controlled calls.
+     * @dev 仅在延迟受限调用的上下文中，在计划操作被执行的那一刻返回 true。
+     * 在合约执行攻击者控制的调用的情况下，防止延迟受限调用的拒绝服务攻击。
      */
     function isConsumingScheduledOp() external view returns (bytes4);
 }

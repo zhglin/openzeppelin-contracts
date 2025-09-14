@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.4.0) (access/manager/IAccessManager.sol)
+// OpenZeppelin Contracts (最后更新于 v5.4.0) (access/manager/IAccessManager.sol)
 
 pragma solidity >=0.8.4;
 
 interface IAccessManager {
     /**
-     * @dev A delayed operation was scheduled.
+     * @dev 一个延迟操作已被调度。
      */
     event OperationScheduled(
         bytes32 indexed operationId,
@@ -17,61 +17,61 @@ interface IAccessManager {
     );
 
     /**
-     * @dev A scheduled operation was executed.
+     * @dev 一个已调度的操作已被执行。
      */
     event OperationExecuted(bytes32 indexed operationId, uint32 indexed nonce);
 
     /**
-     * @dev A scheduled operation was canceled.
+     * @dev 一个已调度的操作已被取消。
      */
     event OperationCanceled(bytes32 indexed operationId, uint32 indexed nonce);
 
     /**
-     * @dev Informational labelling for a roleId.
+     * @dev 为一个 roleId 提供信息性标签。
      */
     event RoleLabel(uint64 indexed roleId, string label);
 
     /**
-     * @dev Emitted when `account` is granted `roleId`.
+     * @dev 当 `account` 被授予 `roleId` 时触发。
      *
-     * NOTE: The meaning of the `since` argument depends on the `newMember` argument.
-     * If the role is granted to a new member, the `since` argument indicates when the account becomes a member of the role,
-     * otherwise it indicates the execution delay for this account and roleId is updated.
+     * 注意：`since` 参数的含义取决于 `newMember` 参数。
+     * 如果角色被授予一个新成员，`since` 参数表示该账户成为角色成员的时间，
+     * 否则它表示此账户和 roleId 的执行延迟被更新。
      */
     event RoleGranted(uint64 indexed roleId, address indexed account, uint32 delay, uint48 since, bool newMember);
 
     /**
-     * @dev Emitted when `account` membership or `roleId` is revoked. Unlike granting, revoking is instantaneous.
+     * @dev 当 `account` 的成员资格或 `roleId` 被撤销时触发。与授予不同，撤销是即时的。
      */
     event RoleRevoked(uint64 indexed roleId, address indexed account);
 
     /**
-     * @dev Role acting as admin over a given `roleId` is updated.
+     * @dev 作为给定 `roleId` 管理员的角色被更新。
      */
     event RoleAdminChanged(uint64 indexed roleId, uint64 indexed admin);
 
     /**
-     * @dev Role acting as guardian over a given `roleId` is updated.
+     * @dev 作为给定 `roleId` 守护者的角色被更新。
      */
     event RoleGuardianChanged(uint64 indexed roleId, uint64 indexed guardian);
 
     /**
-     * @dev Grant delay for a given `roleId` will be updated to `delay` when `since` is reached.
+     * @dev 给定 `roleId` 的授予延迟将在达到 `since` 时间点时更新为 `delay`。
      */
     event RoleGrantDelayChanged(uint64 indexed roleId, uint32 delay, uint48 since);
 
     /**
-     * @dev Target mode is updated (true = closed, false = open).
+     * @dev 目标模式被更新 (true = 关闭, false = 开放)。
      */
     event TargetClosed(address indexed target, bool closed);
 
     /**
-     * @dev Role required to invoke `selector` on `target` is updated to `roleId`.
+     * @dev 在 `target` 上调用 `selector` 所需的角色被更新为 `roleId`。
      */
     event TargetFunctionRoleUpdated(address indexed target, bytes4 selector, uint64 indexed roleId);
 
     /**
-     * @dev Admin delay for a given `target` will be updated to `delay` when `since` is reached.
+     * @dev 给定 `target` 的管理延迟将在达到 `since` 时间点时更新为 `delay`。
      */
     event TargetAdminDelayUpdated(address indexed target, uint32 delay, uint48 since);
 
@@ -88,24 +88,21 @@ interface IAccessManager {
     error AccessManagerInvalidInitialAdmin(address initialAdmin);
 
     /**
-     * @dev Check if an address (`caller`) is authorised to call a given function on a given contract directly (with
-     * no restriction). Additionally, it returns the delay needed to perform the call indirectly through the {schedule}
-     * & {execute} workflow.
+     * @dev 检查一个地址 (`caller`) 是否被授权直接调用给定合约上的给定函数（无限制）。
+     * 此外，它还返回通过 {schedule} 和 {execute} 工作流间接执行调用所需的延迟。
      *
-     * This function is usually called by the targeted contract to control immediate execution of restricted functions.
-     * Therefore we only return true if the call can be performed without any delay. If the call is subject to a
-     * previously set delay (not zero), then the function should return false and the caller should schedule the operation
-     * for future execution.
+     * 此函数通常由目标合约调用，以控制受限函数的立即执行。
+     * 因此，只有在可以无任何延迟地执行调用时，我们才返回 true。如果调用受到先前设置的延迟（非零）的限制，
+     * 则该函数应返回 false，并且调用者应调度该操作以供将来执行。
      *
-     * If `allowed` is true, the delay can be disregarded and the operation can be immediately executed, otherwise
-     * the operation can be executed if and only if delay is greater than 0.
+     * 如果 `allowed` 为 true，则可以忽略延迟，并可立即执行操作，否则，
+     * 当且仅当延迟大于0时，才可以执行该操作。
      *
-     * NOTE: The IAuthority interface does not include the `uint32` delay. This is an extension of that interface that
-     * is backward compatible. Some contracts may thus ignore the second return argument. In that case they will fail
-     * to identify the indirect workflow, and will consider calls that require a delay to be forbidden.
+     * 注意：IAuthority 接口不包含 `uint32` 延迟。这是对该接口的向后兼容扩展。
+     * 因此，某些合约可能会忽略第二个返回参数。在这种情况下，它们将无法识别间接工作流，
+     * 并将需要延迟的调用视为被禁止。
      *
-     * NOTE: This function does not report the permissions of the admin functions in the manager itself. These are defined by the
-     * {AccessManager} documentation.
+     * 注意：此函数不报告管理器本身的管理员函数的权限。这些由 {AccessManager} 文档定义。
      */
     function canCall(
         address caller,
@@ -114,70 +111,67 @@ interface IAccessManager {
     ) external view returns (bool allowed, uint32 delay);
 
     /**
-     * @dev Expiration delay for scheduled proposals. Defaults to 1 week.
+     * @dev 已调度提案的过期延迟。默认为1周。
      *
-     * IMPORTANT: Avoid overriding the expiration with 0. Otherwise every contract proposal will be expired immediately,
-     * disabling any scheduling usage.
+     * 重要提示：避免用0覆盖过期时间。否则，每个合约提案都将立即过期，
+     * 从而禁用任何调度用法。
      */
     function expiration() external view returns (uint32);
 
     /**
-     * @dev Minimum setback for all delay updates, with the exception of execution delays. It
-     * can be increased without setback (and reset via {revokeRole} in the case event of an
-     * accidental increase). Defaults to 5 days.
+     * @dev 除执行延迟外，所有延迟更新的最小生效间隔。
+     * 它可以无间隔地增加（并在意外增加的情况下通过 {revokeRole} 重置）。默认为5天。
      */
     function minSetback() external view returns (uint32);
 
     /**
-     * @dev Get whether the contract is closed disabling any access. Otherwise role permissions are applied.
+     * @dev 获取合约是否已关闭，从而禁用任何访问。否则，将应用角色权限。
      *
-     * NOTE: When the manager itself is closed, admin functions are still accessible to avoid locking the contract.
+     * 注意：当管理器本身关闭时，管理员函数仍然可以访问，以避免锁定合约。
      */
     function isTargetClosed(address target) external view returns (bool);
 
     /**
-     * @dev Get the role required to call a function.
+     * @dev 获取调用函数所需的角色。
      */
     function getTargetFunctionRole(address target, bytes4 selector) external view returns (uint64);
 
     /**
-     * @dev Get the admin delay for a target contract. Changes to contract configuration are subject to this delay.
+     * @dev 获取目标合约的管理延迟。对合约配置的更改受此延迟的限制。
      */
     function getTargetAdminDelay(address target) external view returns (uint32);
 
     /**
-     * @dev Get the id of the role that acts as an admin for the given role.
+     * @dev 获取作为给定角色管理员的角色ID。
      *
-     * The admin permission is required to grant the role, revoke the role and update the execution delay to execute
-     * an operation that is restricted to this role.
+     * 授予角色、撤销角色以及更新执行延迟以执行受此角色限制的操作都需要管理员权限。
      */
     function getRoleAdmin(uint64 roleId) external view returns (uint64);
 
     /**
-     * @dev Get the role that acts as a guardian for a given role.
+     * @dev 获取作为给定角色守护者的角色。
      *
-     * The guardian permission allows canceling operations that have been scheduled under the role.
+     * 守护者权限允许取消已根据该角色调度的操作。
      */
     function getRoleGuardian(uint64 roleId) external view returns (uint64);
 
     /**
-     * @dev Get the role current grant delay.
+     * @dev 获取角色当前的授予延迟。
      *
-     * Its value may change at any point without an event emitted following a call to {setGrantDelay}.
-     * Changes to this value, including effect timepoint are notified in advance by the {RoleGrantDelayChanged} event.
+     * 在调用 {setGrantDelay} 后，其值可能在任何时候更改而不会触发事件。
+     * 此值的更改，包括生效时间点，会通过 {RoleGrantDelayChanged} 事件提前通知。
      */
     function getRoleGrantDelay(uint64 roleId) external view returns (uint32);
 
     /**
-     * @dev Get the access details for a given account for a given role. These details include the timepoint at which
-     * membership becomes active, and the delay applied to all operation by this user that requires this permission
-     * level.
+     * @dev 获取给定角色下给定账户的访问详情。这些详情包括成员资格生效的时间点，
+     * 以及此用户需要此权限级别的所有操作所应用的延迟。
      *
-     * Returns:
-     * [0] Timestamp at which the account membership becomes valid. 0 means role is not granted.
-     * [1] Current execution delay for the account.
-     * [2] Pending execution delay for the account.
-     * [3] Timestamp at which the pending execution delay will become active. 0 means no delay update is scheduled.
+     * 返回：
+     * [0] 账户成员资格生效的时间戳。0 表示未授予角色。
+     * [1] 账户当前的执行延迟。
+     * [2] 账户待处理的执行延迟。
+     * [3] 待处理执行延迟将生效的时间戳。0 表示没有已调度的延迟更新。
      */
     function getAccess(
         uint64 roleId,
@@ -185,163 +179,154 @@ interface IAccessManager {
     ) external view returns (uint48 since, uint32 currentDelay, uint32 pendingDelay, uint48 effect);
 
     /**
-     * @dev Check if a given account currently has the permission level corresponding to a given role. Note that this
-     * permission might be associated with an execution delay. {getAccess} can provide more details.
+     * @dev 检查给定账户当前是否具有与给定角色对应的权限级别。请注意，此权限可能与执行延迟相关联。
+     * {getAccess} 可以提供更多详情。
      */
     function hasRole(uint64 roleId, address account) external view returns (bool isMember, uint32 executionDelay);
 
     /**
-     * @dev Give a label to a role, for improved role discoverability by UIs.
+     * @dev 为角色添加标签，以提高UI对角色的可发现性。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {RoleLabel} event.
+     * 触发一个 {RoleLabel} 事件。
      */
     function labelRole(uint64 roleId, string calldata label) external;
 
     /**
-     * @dev Add `account` to `roleId`, or change its execution delay.
+     * @dev 将 `account` 添加到 `roleId`，或更改其执行延迟。
      *
-     * This gives the account the authorization to call any function that is restricted to this role. An optional
-     * execution delay (in seconds) can be set. If that delay is non 0, the user is required to schedule any operation
-     * that is restricted to members of this role. The user will only be able to execute the operation after the delay has
-     * passed, before it has expired. During this period, admin and guardians can cancel the operation (see {cancel}).
+     * 这授予账户调用任何受此角色限制的函数的权限。可以设置一个可选的执行延迟（以秒为单位）。
+     * 如果该延迟不为0，则用户需要调度任何受此角色成员限制的操作。
+     * 用户只有在延迟过后、操作过期前才能执行该操作。在此期间，管理员和守护者可以取消该操作（参见 {cancel}）。
      *
-     * If the account has already been granted this role, the execution delay will be updated. This update is not
-     * immediate and follows the delay rules. For example, if a user currently has a delay of 3 hours, and this is
-     * called to reduce that delay to 1 hour, the new delay will take some time to take effect, enforcing that any
-     * operation executed in the 3 hours that follows this update was indeed scheduled before this update.
+     * 如果账户已被授予此角色，则执行延迟将被更新。此更新不是即时的，并遵循延迟规则。
+     * 例如，如果一个用户当前的延迟是3小时，而调用此函数将延迟减少到1小时，则新延迟需要一些时间才能生效，
+     * 以确保在此更新后的3小时内执行的任何操作确实是在此更新之前调度的。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be an admin for the role (see {getRoleAdmin})
-     * - granted role must not be the `PUBLIC_ROLE`
+     * - 调用者必须是该角色的管理员（参见 {getRoleAdmin}）
+     * - 授予的角色不能是 `PUBLIC_ROLE`
      *
-     * Emits a {RoleGranted} event.
+     * 触发一个 {RoleGranted} 事件。
      */
     function grantRole(uint64 roleId, address account, uint32 executionDelay) external;
 
     /**
-     * @dev Remove an account from a role, with immediate effect. If the account does not have the role, this call has
-     * no effect.
+     * @dev 从一个角色中移除一个账户，立即生效。如果账户没有该角色，此调用无效。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be an admin for the role (see {getRoleAdmin})
-     * - revoked role must not be the `PUBLIC_ROLE`
+     * - 调用者必须是该角色的管理员（参见 {getRoleAdmin}）
+     * - 撤销的角色不能是 `PUBLIC_ROLE`
      *
-     * Emits a {RoleRevoked} event if the account had the role.
+     * 如果账户拥有该角色，则触发一个 {RoleRevoked} 事件。
      */
     function revokeRole(uint64 roleId, address account) external;
 
     /**
-     * @dev Renounce role permissions for the calling account with immediate effect. If the sender is not in
-     * the role this call has no effect.
+     * @dev 调用账户放弃角色权限，立即生效。如果发送者不在该角色中，此调用无效。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be `callerConfirmation`.
+     * - 调用者必须是 `callerConfirmation`。
      *
-     * Emits a {RoleRevoked} event if the account had the role.
+     * 如果账户拥有该角色，则触发一个 {RoleRevoked} 事件。
      */
     function renounceRole(uint64 roleId, address callerConfirmation) external;
 
     /**
-     * @dev Change admin role for a given role.
+     * @dev 更改给定角色的管理员角色。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {RoleAdminChanged} event
+     * 触发一个 {RoleAdminChanged} 事件
      */
     function setRoleAdmin(uint64 roleId, uint64 admin) external;
 
     /**
-     * @dev Change guardian role for a given role.
+     * @dev 更改给定角色的守护者角色。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {RoleGuardianChanged} event
+     * 触发一个 {RoleGuardianChanged} 事件
      */
     function setRoleGuardian(uint64 roleId, uint64 guardian) external;
 
     /**
-     * @dev Update the delay for granting a `roleId`.
+     * @dev 更新授予 `roleId` 的延迟。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {RoleGrantDelayChanged} event.
+     * 触发一个 {RoleGrantDelayChanged} 事件。
      */
     function setGrantDelay(uint64 roleId, uint32 newDelay) external;
 
     /**
-     * @dev Set the role required to call functions identified by the `selectors` in the `target` contract.
+     * @dev 设置调用 `target` 合约中由 `selectors` 标识的函数所需的角色。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {TargetFunctionRoleUpdated} event per selector.
+     * 每个选择器触发一个 {TargetFunctionRoleUpdated} 事件。
      */
     function setTargetFunctionRole(address target, bytes4[] calldata selectors, uint64 roleId) external;
 
     /**
-     * @dev Set the delay for changing the configuration of a given target contract.
+     * @dev 设置更改给定目标合约配置的延迟。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {TargetAdminDelayUpdated} event.
+     * 触发一个 {TargetAdminDelayUpdated} 事件。
      */
     function setTargetAdminDelay(address target, uint32 newDelay) external;
 
     /**
-     * @dev Set the closed flag for a contract.
+     * @dev 为一个合约设置关闭标志。
      *
-     * Closing the manager itself won't disable access to admin methods to avoid locking the contract.
+     * 关闭管理器本身不会禁用对管理员方法的访问，以避免锁定合约。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      *
-     * Emits a {TargetClosed} event.
+     * 触发一个 {TargetClosed} 事件。
      */
     function setTargetClosed(address target, bool closed) external;
 
     /**
-     * @dev Return the timepoint at which a scheduled operation will be ready for execution. This returns 0 if the
-     * operation is not yet scheduled, has expired, was executed, or was canceled.
+     * @dev 返回一个已调度操作将准备好执行的时间点。如果操作尚未调度、已过期、已执行或已取消，则返回0。
      */
     function getSchedule(bytes32 id) external view returns (uint48);
 
     /**
-     * @dev Return the nonce for the latest scheduled operation with a given id. Returns 0 if the operation has never
-     * been scheduled.
+     * @dev 返回具有给定id的最新调度操作的nonce。如果操作从未被调度，则返回0。
      */
     function getNonce(bytes32 id) external view returns (uint32);
 
     /**
-     * @dev Schedule a delayed operation for future execution, and return the operation identifier. It is possible to
-     * choose the timestamp at which the operation becomes executable as long as it satisfies the execution delays
-     * required for the caller. The special value zero will automatically set the earliest possible time.
+     * @dev 调度一个延迟操作以供将来执行，并返回操作标识符。只要满足调用者所需的执行延迟，
+     * 就可以选择操作变为可执行的时间戳。特殊值零将自动设置为最早可能的时间。
      *
-     * Returns the `operationId` that was scheduled. Since this value is a hash of the parameters, it can reoccur when
-     * the same parameters are used; if this is relevant, the returned `nonce` can be used to uniquely identify this
-     * scheduled operation from other occurrences of the same `operationId` in invocations of {execute} and {cancel}.
+     * 返回被调度的 `operationId`。由于此值是参数的哈希，当使用相同参数时可能会重复出现；
+     * 如果这很重要，返回的 `nonce` 可用于在 {execute} 和 {cancel} 的调用中唯一地标识此调度操作，以区别于同一 `operationId` 的其他出现。
      *
-     * Emits a {OperationScheduled} event.
+     * 触发一个 {OperationScheduled} 事件。
      *
-     * NOTE: It is not possible to concurrently schedule more than one operation with the same `target` and `data`. If
-     * this is necessary, a random byte can be appended to `data` to act as a salt that will be ignored by the target
-     * contract if it is using standard Solidity ABI encoding.
+     * 注意：不能同时调度多个具有相同 `target` 和 `data` 的操作。如果需要这样做，
+     * 可以在 `data` 后附加一个随机字节作为盐，如果目标合约使用标准的Solidity ABI编码，则该盐将被忽略。
      */
     function schedule(
         address target,
@@ -350,50 +335,46 @@ interface IAccessManager {
     ) external returns (bytes32 operationId, uint32 nonce);
 
     /**
-     * @dev Execute a function that is delay restricted, provided it was properly scheduled beforehand, or the
-     * execution delay is 0.
+     * @dev 执行一个受延迟限制的函数，前提是它已事先正确调度，或者执行延迟为0。
      *
-     * Returns the nonce that identifies the previously scheduled operation that is executed, or 0 if the
-     * operation wasn't previously scheduled (if the caller doesn't have an execution delay).
+     * 返回被执行的先前调度操作的nonce，如果操作未曾调度（如果调用者没有执行延迟），则返回0。
      *
-     * Emits an {OperationExecuted} event only if the call was scheduled and delayed.
+     * 仅当调用被调度并延迟时，才触发一个 {OperationExecuted} 事件。
      */
     function execute(address target, bytes calldata data) external payable returns (uint32);
 
     /**
-     * @dev Cancel a scheduled (delayed) operation. Returns the nonce that identifies the previously scheduled
-     * operation that is cancelled.
+     * @dev 取消一个已调度（延迟）的操作。返回被取消的先前调度操作的nonce。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be the proposer, a guardian of the targeted function, or a global admin
+     * - 调用者必须是提议者、目标函数的守护者或全局管理员
      *
-     * Emits a {OperationCanceled} event.
+     * 触发一个 {OperationCanceled} 事件。
      */
     function cancel(address caller, address target, bytes calldata data) external returns (uint32);
 
     /**
-     * @dev Consume a scheduled operation targeting the caller. If such an operation exists, mark it as consumed
-     * (emit an {OperationExecuted} event and clean the state). Otherwise, throw an error.
+     * @dev 消费一个以调用者为目标的已调度操作。如果存在这样的操作，则将其标记为已消费
+     * （触发一个 {OperationExecuted} 事件并清理状态）。否则，抛出一个错误。
      *
-     * This is useful for contract that want to enforce that calls targeting them were scheduled on the manager,
-     * with all the verifications that it implies.
+     * 这对于希望强制要求以它们为目标的调用已在管理器上调度（及其所包含的所有验证）的合约很有用。
      *
-     * Emit a {OperationExecuted} event.
+     * 触发一个 {OperationExecuted} 事件。
      */
     function consumeScheduledOp(address caller, bytes calldata data) external;
 
     /**
-     * @dev Hashing function for delayed operations.
+     * @dev 延迟操作的哈希函数。
      */
     function hashOperation(address caller, address target, bytes calldata data) external view returns (bytes32);
 
     /**
-     * @dev Changes the authority of a target managed by this manager instance.
+     * @dev 更改此管理器实例所管理的目标的权限合约。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be a global admin
+     * - 调用者必须是全局管理员
      */
     function updateAuthority(address target, address newAuthority) external;
 }

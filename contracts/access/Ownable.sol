@@ -6,34 +6,27 @@ pragma solidity ^0.8.20;
 import {Context} from "../utils/Context.sol";
 
 /**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * The initial owner is set to the address provided by the deployer. This can
- * later be changed with {transferOwnership}.
- *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
+ * @dev 合约模块，提供基本的访问控制机制，其中有一个帐户（所有者）可以被授予对特定函数的独占访问权。
+ * 初始所有者被设置为部署者提供的地址。之后可以通过 {transferOwnership} 更改。
+ * 此模块通过继承使用。它将提供 `onlyOwner` 修饰器，可以应用于您的函数，以将其使用限制为所有者。
  */
 abstract contract Ownable is Context {
     address private _owner;
 
     /**
-     * @dev The caller account is not authorized to perform an operation.
+     * @dev 调用者帐户无权执行操作。
      */
     error OwnableUnauthorizedAccount(address account);
 
     /**
-     * @dev The owner is not a valid owner account. (eg. `address(0)`)
+     * @dev 所有者不是有效的帐户。（例如 `address(0)`）
      */
     error OwnableInvalidOwner(address owner);
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
-     * @dev Initializes the contract setting the address provided by the deployer as the initial owner.
+     * @dev 初始化合约，将部署者提供的地址设置为初始所有者。
      */
     constructor(address initialOwner) {
         if (initialOwner == address(0)) {
@@ -43,7 +36,7 @@ abstract contract Ownable is Context {
     }
 
     /**
-     * @dev Throws if called by any account other than the owner.
+     * @dev 如果被除所有者以外的任何帐户调用，则抛出异常。
      */
     modifier onlyOwner() {
         _checkOwner();
@@ -51,14 +44,14 @@ abstract contract Ownable is Context {
     }
 
     /**
-     * @dev Returns the address of the current owner.
+     * @dev 返回当前所有者的地址。
      */
     function owner() public view virtual returns (address) {
         return _owner;
     }
 
     /**
-     * @dev Throws if the sender is not the owner.
+     * @dev 如果发送者不是所有者，则抛出异常。
      */
     function _checkOwner() internal view virtual {
         if (owner() != _msgSender()) {
@@ -67,19 +60,16 @@ abstract contract Ownable is Context {
     }
 
     /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby disabling any functionality that is only available to the owner.
+     * @dev 使合约没有所有者。将无法调用 `onlyOwner` 函数。只能由当前所有者调用。
+     * 注意：放弃所有权将使合约没有所有者，从而禁用任何仅对所有者可用的功能。
      */
     function renounceOwnership() public virtual onlyOwner {
         _transferOwnership(address(0));
     }
 
     /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
+     * @dev 将合约的所有权转移给一个新帐户 (`newOwner`)。
+     * 只能由当前所有者调用。
      */
     function transferOwnership(address newOwner) public virtual onlyOwner {
         if (newOwner == address(0)) {
@@ -89,8 +79,8 @@ abstract contract Ownable is Context {
     }
 
     /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Internal function without access restriction.
+     * @dev 将合约的所有权转移给一个新帐户 (`newOwner`)。
+     * 无访问限制的内部函数。
      */
     function _transferOwnership(address newOwner) internal virtual {
         address oldOwner = _owner;

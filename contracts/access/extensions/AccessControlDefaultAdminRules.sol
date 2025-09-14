@@ -11,53 +11,65 @@ import {IERC5313} from "../../interfaces/IERC5313.sol";
 import {IERC165} from "../../utils/introspection/ERC165.sol";
 
 /**
- * @dev Extension of {AccessControl} that allows specifying special rules to manage
- * the `DEFAULT_ADMIN_ROLE` holder, which is a sensitive role with special permissions
- * over other roles that may potentially have privileged rights in the system.
+ * @dev {AccessControl} 的扩展，允许指定特殊规则来管理 `DEFAULT_ADMIN_ROLE` 的持有者，
+ * 这是一个敏感角色，对系统中可能拥有特权的其他角色具有特殊权限。
  *
- * If a specific role doesn't have an admin role assigned, the holder of the
- * `DEFAULT_ADMIN_ROLE` will have the ability to grant it and revoke it.
+ * 如果特定角色没有分配管理员角色，`DEFAULT_ADMIN_ROLE` 的持有者将有能力授予和撤销该角色。
  *
- * This contract implements the following risk mitigations on top of {AccessControl}:
+ * 此合约在 {AccessControl} 的基础上实现了以下风险缓解措施：
  *
- * * Only one account holds the `DEFAULT_ADMIN_ROLE` since deployment until it's potentially renounced.
- * * Enforces a 2-step process to transfer the `DEFAULT_ADMIN_ROLE` to another account.
- * * Enforces a configurable delay between the two steps, with the ability to cancel before the transfer is accepted.
- * * The delay can be changed by scheduling, see {changeDefaultAdminDelay}.
- * * Role transfers must wait at least one block after scheduling before it can be accepted.
- * * It is not possible to use another role to manage the `DEFAULT_ADMIN_ROLE`.
+ * * 从部署开始，只有一个帐户持有 `DEFAULT_ADMIN_ROLE`，直到它可能被放弃。
+ * * 强制执行一个两步过程来将 `DEFAULT_ADMIN_ROLE` 转移给另一个帐户。
+ * * 在两个步骤之间强制执行一个可配置的延迟，并有能力在转移被接受之前取消。
+ * 
+ * * 延迟可以通过计划进行更改，请参见 {changeDefaultAdminDelay}。
+ * * 角色转移在计划后必须至少等待一个区块才能被接受。
+ * * 不可能使用另一个角色来管理 `DEFAULT_ADMIN_ROLE`。
  *
- * Example usage:
+ * 示例用法：
  *
  * ```solidity
  * contract MyToken is AccessControlDefaultAdminRules {
  *   constructor() AccessControlDefaultAdminRules(
  *     3 days,
- *     msg.sender // Explicit initial `DEFAULT_ADMIN_ROLE` holder
+ *     msg.sender // 明确的初始 `DEFAULT_ADMIN_ROLE` 持有者
  *    ) {}
  * }
  * ```
  */
 abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRules, IERC5313, AccessControl {
-    // pending admin pair read/written together frequently
+    // 待定管理员对，频繁一起读/写
+    // `_pendingDefaultAdmin` (address): 存储被提议为新任默认管理员的账户地址。
+    // `_pendingDefaultAdminSchedule` (uint48): 存储一个未来的时间戳，只有在这个时间戳之后，被提议的新管理员才能接受并完成转移。
+    // 能否转移要看_pendingDefaultAdminSchedule的时间,_pendingDefaultAdminSchedule依赖_pendingDelay
     address private _pendingDefaultAdmin;
-    uint48 private _pendingDefaultAdminSchedule; // 0 == unset
+    uint48 private _pendingDefaultAdminSchedule; // 0 == 未设置
 
+    // 当前默认管理员对，频繁一起读/写
+    // _currentDelay 代表了在任何给定时间点，转移 DEFAULT_ADMIN_ROLE 所必须等待的确切时间。
+    // _currentDefaultAdmin记录当前的管理员地址。
     uint48 private _currentDelay;
     address private _currentDefaultAdmin;
 
-    // pending delay pair read/written together frequently
+    // 待定延迟对，频繁一起读/写
+    // 当现有的 DEFAULT_ADMIN_ROLE 持有者想要更改执行操作（如转移管理员权限）所需的延迟时间时，他们会调用 changeDefaultAdminDelay(newDelay)函数。
+    // 这个新的延迟时间 newDelay 不会立即生效，而是被存储在 _pendingDelay 中。
     uint48 private _pendingDelay;
-    uint48 private _pendingDelaySchedule; // 0 == unset
+    // 这个时间戳代表了 _pendingDelay 中存储的新延迟时间可以正式生效的最早时间点。
+    // 当 changeDefaultAdminDelay 被调用时，合约会根据当前延迟和新延迟的差异计算出一个等待期，然后将 block.timestamp + 等待期 的结果存入_pendingDelaySchedule。
+    // _pendingDelaySchedule这个值并不一定等于当前时间戳+_pendingDelay的值 
+    uint48 private _pendingDelaySchedule; // 0 == 未设置 无法获取发起变更时的那个 `block.timestamp`,所以需要记录这个值
+    // 通过_pendingDelaySchedule的时间控制_pendingDelay是否生效
 
     /**
-     * @dev Sets the initial values for {defaultAdminDelay} and {defaultAdmin} address.
+     * @dev 设置 {defaultAdminDelay} 和 {defaultAdmin} 地址的初始值。
      */
     constructor(uint48 initialDelay, address initialDefaultAdmin) {
         if (initialDefaultAdmin == address(0)) {
             revert AccessControlInvalidDefaultAdmin(address(0));
         }
         _currentDelay = initialDelay;
+        // initialDefaultAdmin设置为DEFAULT_ADMIN_ROLE角色成员
         _grantRole(DEFAULT_ADMIN_ROLE, initialDefaultAdmin);
     }
 
@@ -72,13 +84,14 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     ///
-    /// Override AccessControl role management
+    /// 重写 AccessControl 角色管理
     ///
 
     /**
-     * @dev See {AccessControl-grantRole}. Reverts for `DEFAULT_ADMIN_ROLE`.
+     * @dev 参见 {AccessControl-grantRole}。对于 `DEFAULT_ADMIN_ROLE` 会回滚。
      */
     function grantRole(bytes32 role, address account) public virtual override(AccessControl, IAccessControl) {
+        // 不允许给予DEFAULT_ADMIN_ROLE的角色
         if (role == DEFAULT_ADMIN_ROLE) {
             revert AccessControlEnforcedDefaultAdminRules();
         }
@@ -86,31 +99,35 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     /**
-     * @dev See {AccessControl-revokeRole}. Reverts for `DEFAULT_ADMIN_ROLE`.
+     * @dev 参见 {AccessControl-revokeRole}。对于 `DEFAULT_ADMIN_ROLE` 会回滚。
      */
     function revokeRole(bytes32 role, address account) public virtual override(AccessControl, IAccessControl) {
+        // 不允许撤销DEFAULT_ADMIN_ROLE的角色
         if (role == DEFAULT_ADMIN_ROLE) {
             revert AccessControlEnforcedDefaultAdminRules();
         }
+        // 调用父类的revokeRole方法,父类的revokeRole方法调用_revokeRole函数,
+        // AccessControlDefaultAdminRules对_revokeRole函数进行了重写，
+        // 所以这里的调用会优先执行AccessControlDefaultAdminRules中的_revokeRole。
         super.revokeRole(role, account);
     }
 
     /**
-     * @dev See {AccessControl-renounceRole}.
+     * @dev 参见 {AccessControl-renounceRole}。
      *
-     * For the `DEFAULT_ADMIN_ROLE`, it only allows renouncing in two steps by first calling
-     * {beginDefaultAdminTransfer} to the `address(0)`, so it's required that the {pendingDefaultAdmin} schedule
-     * has also passed when calling this function.
+     * 对于 `DEFAULT_ADMIN_ROLE`，它只允许通过首先调用 {beginDefaultAdminTransfer} 到 `address(0)` 来分两步放弃，
+     * 因此在调用此函数时，要求 {pendingDefaultAdmin} 的计划也已通过。
      *
-     * After its execution, it will not be possible to call `onlyRole(DEFAULT_ADMIN_ROLE)` functions.
+     * 执行后，将无法调用 `onlyRole(DEFAULT_ADMIN_ROLE)` 函数。
      *
-     * NOTE: Renouncing `DEFAULT_ADMIN_ROLE` will leave the contract without a {defaultAdmin},
-     * thereby disabling any functionality that is only available for it, and the possibility of reassigning a
-     * non-administrated role.
+     * 注意：放弃 `DEFAULT_ADMIN_ROLE` 将使合约没有 {defaultAdmin}，
+     * 从而禁用任何仅对其可用的功能，以及重新分配非管理角色的可能性。
      */
     function renounceRole(bytes32 role, address account) public virtual override(AccessControl, IAccessControl) {
+        // 当前的最高管理员（`defaultAdmin()`）正在试图放弃他自己的最高管理员角色（`DEFAULT_ADMIN_ROLE`）
         if (role == DEFAULT_ADMIN_ROLE && account == defaultAdmin()) {
             (address newDefaultAdmin, uint48 schedule) = pendingDefaultAdmin();
+            // 
             if (newDefaultAdmin != address(0) || !_isScheduleSet(schedule) || !_hasSchedulePassed(schedule)) {
                 revert AccessControlEnforcedDefaultAdminDelay(schedule);
             }
@@ -120,16 +137,17 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     /**
-     * @dev See {AccessControl-_grantRole}.
+     * @dev 参见 {AccessControl-_grantRole}。
      *
-     * For `DEFAULT_ADMIN_ROLE`, it only allows granting if there isn't already a {defaultAdmin} or if the
-     * role has been previously renounced.
+     * 对于 `DEFAULT_ADMIN_ROLE`，仅当尚无 {defaultAdmin} 或
+     * 该角色先前已被放弃时，才允许授予。
      *
-     * NOTE: Exposing this function through another mechanism may make the `DEFAULT_ADMIN_ROLE`
-     * assignable again. Make sure to guarantee this is the expected behavior in your implementation.
+     * 注意：通过另一种机制公开此函数可能会使 `DEFAULT_ADMIN_ROLE`
+     * 再次可分配。请确保在您的实现中保证这是预期的行为。
      */
     function _grantRole(bytes32 role, address account) internal virtual override returns (bool) {
         if (role == DEFAULT_ADMIN_ROLE) {
+            // 只有在没有当前默认管理员的情况下，才能授予DEFAULT_ADMIN_ROLE角色
             if (defaultAdmin() != address(0)) {
                 revert AccessControlEnforcedDefaultAdminRules();
             }
@@ -140,6 +158,7 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
 
     /// @inheritdoc AccessControl
     function _revokeRole(bytes32 role, address account) internal virtual override returns (bool) {
+        // 只有当撤销DEFAULT_ADMIN_ROLE角色的持有者是当前的默认管理员时，才删除_currentDefaultAdmin。
         if (role == DEFAULT_ADMIN_ROLE && account == defaultAdmin()) {
             delete _currentDefaultAdmin;
         }
@@ -147,9 +166,10 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     /**
-     * @dev See {AccessControl-_setRoleAdmin}. Reverts for `DEFAULT_ADMIN_ROLE`.
+     * @dev 参见 {AccessControl-_setRoleAdmin}。对于 `DEFAULT_ADMIN_ROLE` 会回滚。
      */
     function _setRoleAdmin(bytes32 role, bytes32 adminRole) internal virtual override {
+        // 不允许更改DEFAULT_ADMIN_ROLE的管理员角色
         if (role == DEFAULT_ADMIN_ROLE) {
             revert AccessControlEnforcedDefaultAdminRules();
         }
@@ -157,7 +177,7 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     ///
-    /// AccessControlDefaultAdminRules accessors
+    /// AccessControlDefaultAdminRules 访问器
     ///
 
     /// @inheritdoc IAccessControlDefaultAdminRules
@@ -171,12 +191,18 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     /// @inheritdoc IAccessControlDefaultAdminRules
+    // 这个函数是获取当前应遵守的管理员延迟时间的唯一真实来源。它自动处理了从旧延迟到新延迟的“无缝切换”。
+    // 有一个待处理的延迟变更，并且其生效时间已到，函数就会返回 _pendingDelay（新的延迟时间）
+    // 否则（即没有待处理的变更，或者变更的生效时间未到），函数就会返回 _currentDelay（当前正在使用的延迟时间）。
+    // 获取在当前时间点，任何需要延迟的操作（如 beginDefaultAdminTransfer）应该遵守的延迟时间。
     function defaultAdminDelay() public view virtual returns (uint48) {
         uint48 schedule = _pendingDelaySchedule;
         return (_isScheduleSet(schedule) && _hasSchedulePassed(schedule)) ? _pendingDelay : _currentDelay;
     }
 
     /// @inheritdoc IAccessControlDefaultAdminRules
+    // 查询是否有一个已提议、但尚未生效的延迟变更。这让外部用户可以监控即将发生的变化。
+    // 只提供查询功能
     function pendingDefaultAdminDelay() public view virtual returns (uint48 newDelay, uint48 schedule) {
         schedule = _pendingDelaySchedule;
         return (_isScheduleSet(schedule) && !_hasSchedulePassed(schedule)) ? (_pendingDelay, schedule) : (0, 0);
@@ -188,18 +214,18 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     ///
-    /// AccessControlDefaultAdminRules public and internal setters for defaultAdmin/pendingDefaultAdmin
+    /// AccessControlDefaultAdminRules 公共和内部设置器，用于 defaultAdmin/pendingDefaultAdmin
     ///
-
+    // 设置新的默认管理员转移。
     /// @inheritdoc IAccessControlDefaultAdminRules
     function beginDefaultAdminTransfer(address newAdmin) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         _beginDefaultAdminTransfer(newAdmin);
     }
 
     /**
-     * @dev See {beginDefaultAdminTransfer}.
+     * @dev 参见 {beginDefaultAdminTransfer}。
      *
-     * Internal function without access restriction.
+     * 无访问限制的内部函数。
      */
     function _beginDefaultAdminTransfer(address newAdmin) internal virtual {
         uint48 newSchedule = SafeCast.toUint48(block.timestamp) + defaultAdminDelay();
@@ -208,33 +234,38 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     /// @inheritdoc IAccessControlDefaultAdminRules
+    // 取消待定的默认管理员转移。
+    // 调用者必须是当前的默认管理员。
     function cancelDefaultAdminTransfer() public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         _cancelDefaultAdminTransfer();
     }
 
     /**
-     * @dev See {cancelDefaultAdminTransfer}.
+     * @dev 参见 {cancelDefaultAdminTransfer}。
      *
-     * Internal function without access restriction.
+     * 无访问限制的内部函数。
      */
     function _cancelDefaultAdminTransfer() internal virtual {
         _setPendingDefaultAdmin(address(0), 0);
     }
 
     /// @inheritdoc IAccessControlDefaultAdminRules
+    // 调用者必须是待定的默认管理员，并且接受计划的时间戳必须已经过去。
+    // 该函数完成后，调用者将获得 DEFAULT_ADMIN_ROLE，而前任管理员将失去该角色。
+    // 此外，待定的默认管理员和其计划将被重置为零值。
     function acceptDefaultAdminTransfer() public virtual {
         (address newDefaultAdmin, ) = pendingDefaultAdmin();
         if (_msgSender() != newDefaultAdmin) {
-            // Enforce newDefaultAdmin explicit acceptance.
+            // 强制 newDefaultAdmin 显式接受。
             revert AccessControlInvalidDefaultAdmin(_msgSender());
         }
         _acceptDefaultAdminTransfer();
     }
 
     /**
-     * @dev See {acceptDefaultAdminTransfer}.
+     * @dev 参见 {acceptDefaultAdminTransfer}。
      *
-     * Internal function without access restriction.
+     * 无访问限制的内部函数。
      */
     function _acceptDefaultAdminTransfer() internal virtual {
         (address newAdmin, uint48 schedule) = pendingDefaultAdmin();
@@ -248,18 +279,19 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     ///
-    /// AccessControlDefaultAdminRules public and internal setters for defaultAdminDelay/pendingDefaultAdminDelay
+    /// AccessControlDefaultAdminRules 公共和内部设置器，用于 defaultAdminDelay/pendingDefaultAdminDelay
     ///
 
     /// @inheritdoc IAccessControlDefaultAdminRules
+    // 设置delay的新值。_pendingDelaySchedule值记录新delay何时可以生效。
     function changeDefaultAdminDelay(uint48 newDelay) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         _changeDefaultAdminDelay(newDelay);
     }
 
     /**
-     * @dev See {changeDefaultAdminDelay}.
+     * @dev 参见 {changeDefaultAdminDelay}。
      *
-     * Internal function without access restriction.
+     * 无访问限制的内部函数。
      */
     function _changeDefaultAdminDelay(uint48 newDelay) internal virtual {
         uint48 newSchedule = SafeCast.toUint48(block.timestamp) + _delayChangeWait(newDelay);
@@ -273,49 +305,46 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     /**
-     * @dev See {rollbackDefaultAdminDelay}.
+     * @dev 参见 {rollbackDefaultAdminDelay}。
      *
-     * Internal function without access restriction.
+     * 无访问限制的内部函数。
      */
     function _rollbackDefaultAdminDelay() internal virtual {
         _setPendingDelay(0, 0);
     }
 
     /**
-     * @dev Returns the amount of seconds to wait after the `newDelay` will
-     * become the new {defaultAdminDelay}.
+     * @dev 返回 `newDelay` 成为新的 {defaultAdminDelay} 之后需要等待的秒数。
      *
-     * The value returned guarantees that if the delay is reduced, it will go into effect
-     * after a wait that honors the previously set delay.
+     * 返回的值保证，如果延迟减少，它将在等待 honoring 先前设置的延迟之后生效。
      *
-     * See {defaultAdminDelayIncreaseWait}.
+     * 参见 {defaultAdminDelayIncreaseWait}。
      */
     function _delayChangeWait(uint48 newDelay) internal view virtual returns (uint48) {
         uint48 currentDelay = defaultAdminDelay();
 
-        // When increasing the delay, we schedule the delay change to occur after a period of "new delay" has passed, up
-        // to a maximum given by defaultAdminDelayIncreaseWait, by default 5 days. For example, if increasing from 1 day
-        // to 3 days, the new delay will come into effect after 3 days. If increasing from 1 day to 10 days, the new
-        // delay will come into effect after 5 days. The 5 day wait period is intended to be able to fix an error like
-        // using milliseconds instead of seconds.
+        // 增加延迟时，我们计划延迟更改在“新延迟”周期过后发生，
+        // 最长不超过 defaultAdminDelayIncreaseWait 给定的最大值，默认为 5 天。例如，如果从 1 天增加到 3 天，
+        // 新的延迟将在 3 天后生效。如果从 1 天增加到 10 天，新的延迟将在 5 天后生效。
+        // 5 天的等待期旨在能够修复诸如使用毫秒代替秒之类的错误。
         //
-        // When decreasing the delay, we wait the difference between "current delay" and "new delay". This guarantees
-        // that an admin transfer cannot be made faster than "current delay" at the time the delay change is scheduled.
-        // For example, if decreasing from 10 days to 3 days, the new delay will come into effect after 7 days.
+        // 减少延迟时，我们等待“当前延迟”和“新延迟”之间的差值。这保证了
+        // 在计划延迟更改时，管理员转移不能比“当前延迟”更快。
+        // 例如，如果从 10 天减少到 3 天，新的延迟将在 7 天后生效。
         return
             newDelay > currentDelay
-                ? uint48(Math.min(newDelay, defaultAdminDelayIncreaseWait())) // no need to safecast, both inputs are uint48
+                ? uint48(Math.min(newDelay, defaultAdminDelayIncreaseWait())) // 无需 safecast，两个输入都是 uint48
                 : currentDelay - newDelay;
     }
 
     ///
-    /// Private setters
+    /// 私有设置器
     ///
 
     /**
-     * @dev Setter of the tuple for pending admin and its schedule.
+     * @dev 待定管理员及其计划的元组的设置器。
      *
-     * May emit a DefaultAdminTransferCanceled event.
+     * 可能触发 DefaultAdminTransferCanceled 事件。
      */
     function _setPendingDefaultAdmin(address newAdmin, uint48 newSchedule) private {
         (, uint48 oldSchedule) = pendingDefaultAdmin();
@@ -323,27 +352,27 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
         _pendingDefaultAdmin = newAdmin;
         _pendingDefaultAdminSchedule = newSchedule;
 
-        // An `oldSchedule` from `pendingDefaultAdmin()` is only set if it hasn't been accepted.
+        // 只有在尚未接受的情况下，才会设置来自 `pendingDefaultAdmin()` 的 `oldSchedule`。
         if (_isScheduleSet(oldSchedule)) {
-            // Emit for implicit cancellations when another default admin was scheduled.
+            // 当计划了另一个默认管理员时，为隐式取消触发事件。
             emit DefaultAdminTransferCanceled();
         }
     }
 
     /**
-     * @dev Setter of the tuple for pending delay and its schedule.
+     * @dev 待定延迟及其计划的元组的设置器。
      *
-     * May emit a DefaultAdminDelayChangeCanceled event.
+     * 可能触发 DefaultAdminDelayChangeCanceled 事件。
      */
     function _setPendingDelay(uint48 newDelay, uint48 newSchedule) private {
         uint48 oldSchedule = _pendingDelaySchedule;
 
         if (_isScheduleSet(oldSchedule)) {
             if (_hasSchedulePassed(oldSchedule)) {
-                // Materialize a virtual delay
+                // 实现虚拟延迟
                 _currentDelay = _pendingDelay;
             } else {
-                // Emit for implicit cancellations when another delay was scheduled.
+                // 当计划了另一个延迟时，为隐式取消触发事件。
                 emit DefaultAdminDelayChangeCanceled();
             }
         }
@@ -353,18 +382,18 @@ abstract contract AccessControlDefaultAdminRules is IAccessControlDefaultAdminRu
     }
 
     ///
-    /// Private helpers
+    /// 私有帮助函数
     ///
 
     /**
-     * @dev Defines if an `schedule` is considered set. For consistency purposes.
+     * @dev 定义一个 `schedule` 是否被视为已设置。为了保持一致性。
      */
     function _isScheduleSet(uint48 schedule) private pure returns (bool) {
         return schedule != 0;
     }
 
     /**
-     * @dev Defines if an `schedule` is considered passed. For consistency purposes.
+     * @dev 定义一个 `schedule` 是否被视为已通过。为了保持一致性。
      */
     function _hasSchedulePassed(uint48 schedule) private view returns (bool) {
         return schedule < block.timestamp;
