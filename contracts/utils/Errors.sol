@@ -4,31 +4,31 @@
 pragma solidity ^0.8.20;
 
 /**
- * @dev Collection of common custom errors used in multiple contracts
+ * @dev 多个合约中使用的通用自定义错误的集合
  *
- * IMPORTANT: Backwards compatibility is not guaranteed in future versions of the library.
- * It is recommended to avoid relying on the error API for critical functionality.
+ * 重要提示：在库的未来版本中不保证向后兼容。
+ * 建议避免依赖错误 API 来实现关键功能。
  *
- * _Available since v5.1._
+ * _自 v5.1 起可用。_
  */
 library Errors {
     /**
-     * @dev The ETH balance of the account is not enough to perform the operation.
+     * @dev 账户的 ETH 余额不足以执行操作。
      */
     error InsufficientBalance(uint256 balance, uint256 needed);
 
     /**
-     * @dev A call to an address target failed. The target may have reverted.
+     * @dev 对目标地址的调用失败。目标可能已回滚。
      */
     error FailedCall();
 
     /**
-     * @dev The deployment failed.
+     * @dev 部署失败。
      */
     error FailedDeployment();
 
     /**
-     * @dev A necessary precompile is missing.
+     * @dev 缺少必要的预编译合约。
      */
     error MissingPrecompile(address);
 }

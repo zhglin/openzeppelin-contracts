@@ -8,32 +8,32 @@ import {Math} from "../../utils/math/Math.sol";
 import {Calldata} from "../../utils/Calldata.sol";
 import {Packing} from "../../utils/Packing.sol";
 
-/// @dev This is available on all entrypoint since v0.4.0, but is not formally part of the ERC.
+/// @dev 自 v0.4.0 起，所有入口点都提供此功能，但它并非 ERC 的正式组成部分。
 interface IEntryPointExtra {
     function getUserOpHash(PackedUserOperation calldata userOp) external view returns (bytes32);
 }
 
 /**
- * @dev Library with common ERC-4337 utility functions.
+ * @dev 包含通用 ERC-4337 实用函数的库。
  *
- * See https://eips.ethereum.org/EIPS/eip-4337[ERC-4337].
+ * 参见 https://eips.ethereum.org/EIPS/eip-4337[ERC-4337]。
  */
 library ERC4337Utils {
     using Packing for *;
 
-    /// @dev Address of the entrypoint v0.7.0
+    /// @dev EntryPoint v0.7.0 的地址
     IEntryPoint internal constant ENTRYPOINT_V07 = IEntryPoint(0x0000000071727De22E5E9d8BAf0edAc6f37da032);
 
-    /// @dev Address of the entrypoint v0.8.0
+    /// @dev EntryPoint v0.8.0 的地址
     IEntryPoint internal constant ENTRYPOINT_V08 = IEntryPoint(0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108);
 
-    /// @dev For simulation purposes, validateUserOp (and validatePaymasterUserOp) return this value on success.
+    /// @dev 出于模拟目的，validateUserOp（和 validatePaymasterUserOp）在成功时返回此值。
     uint256 internal constant SIG_VALIDATION_SUCCESS = 0;
 
-    /// @dev For simulation purposes, validateUserOp (and validatePaymasterUserOp) must return this value in case of signature failure, instead of revert.
+    /// @dev 出于模拟目的，validateUserOp（和 validatePaymasterUserOp）在签名失败时必须返回此值，而不是 revert。
     uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
-    /// @dev Parses the validation data into its components. See {packValidationData}.
+    /// @dev 将验证数据解析为其组成部分。参见 {packValidationData}。
     function parseValidationData(
         uint256 validationData
     ) internal pure returns (address aggregator, uint48 validAfter, uint48 validUntil) {
@@ -43,7 +43,7 @@ library ERC4337Utils {
         if (validUntil == 0) validUntil = type(uint48).max;
     }
 
-    /// @dev Packs the validation data into a single uint256. See {parseValidationData}.
+    /// @dev 将验证数据打包成单个 uint256。参见 {parseValidationData}。
     function packValidationData(
         address aggregator,
         uint48 validAfter,
@@ -52,7 +52,7 @@ library ERC4337Utils {
         return uint256(bytes6(validAfter).pack_6_6(bytes6(validUntil)).pack_12_20(bytes20(aggregator)));
     }
 
-    /// @dev Same as {packValidationData}, but with a boolean signature success flag.
+    /// @dev 与 {packValidationData} 相同，但带有一个布尔类型的签名成功标志。
     function packValidationData(bool sigSuccess, uint48 validAfter, uint48 validUntil) internal pure returns (uint256) {
         return
             packValidationData(
@@ -63,10 +63,10 @@ library ERC4337Utils {
     }
 
     /**
-     * @dev Combines two validation data into a single one.
+     * @dev 将两个验证数据合并为一个。
      *
-     * The `aggregator` is set to {SIG_VALIDATION_SUCCESS} if both are successful, while
-     * the `validAfter` is the maximum and the `validUntil` is the minimum of both.
+     * 如果两者都成功，`aggregator` 会被设置为 {SIG_VALIDATION_SUCCESS}，
+     * 而 `validAfter` 是两者中的最大值，`validUntil` 是两者中的最小值。
      */
     function combineValidationData(uint256 validationData1, uint256 validationData2) internal pure returns (uint256) {
         (address aggregator1, uint48 validAfter1, uint48 validUntil1) = parseValidationData(validationData1);
@@ -79,80 +79,80 @@ library ERC4337Utils {
         return packValidationData(success, validAfter, validUntil);
     }
 
-    /// @dev Returns the aggregator of the `validationData` and whether it is out of time range.
+    /// @dev 返回 `validationData` 的聚合器以及它是否超出时间范围。
     function getValidationData(uint256 validationData) internal view returns (address aggregator, bool outOfTimeRange) {
         (address aggregator_, uint48 validAfter, uint48 validUntil) = parseValidationData(validationData);
         return (aggregator_, block.timestamp < validAfter || validUntil < block.timestamp);
     }
 
-    /// @dev Get the hash of a user operation for a given entrypoint
+    /// @dev 获取给定入口点的用户操作哈希
     function hash(PackedUserOperation calldata self, address entrypoint) internal view returns (bytes32) {
-        // NOTE: getUserOpHash is available since v0.4.0
+        // 注意：getUserOpHash 自 v0.4.0 起可用
         //
-        // Prior to v0.8.0, this was easy to replicate for any entrypoint and chainId. Since v0.8.0 of the
-        // entrypoint, this depends on the Entrypoint's domain separator, which cannot be hardcoded and is complex
-        // to recompute. Domain separator could be fetch using the `getDomainSeparatorV4` getter, or recomputed from
-        // the ERC-5267 getter, but both operation would require doing a view call to the entrypoint. Overall it feels
-        // simpler and less error prone to get that functionality from the entrypoint directly.
+        // 在 v0.8.0 之前，对于任何入口点和链 ID，这都很容易复制。自 v0.8.0 起，
+        // 这取决于入口点的域分隔符，该分隔符不能硬编码且重新计算起来很复杂。
+        // 域分隔符可以使用 `getDomainSeparatorV4` getter 获取，或从
+        // ERC-5267 getter 重新计算，但这两种操作都需要对入口点进行视图调用。总的来说，
+        // 直接从入口点获取该功能感觉更简单且不易出错。
         return IEntryPointExtra(entrypoint).getUserOpHash(self);
     }
 
-    /// @dev Returns `factory` from the {PackedUserOperation}, or address(0) if the initCode is empty or not properly formatted.
+    /// @dev 从 {PackedUserOperation} 返回 `factory`，如果 initCode 为空或格式不正确，则返回 address(0)。
     function factory(PackedUserOperation calldata self) internal pure returns (address) {
         return self.initCode.length < 20 ? address(0) : address(bytes20(self.initCode[0:20]));
     }
 
-    /// @dev Returns `factoryData` from the {PackedUserOperation}, or empty bytes if the initCode is empty or not properly formatted.
+    /// @dev 从 {PackedUserOperation} 返回 `factoryData`，如果 initCode 为空或格式不正确，则返回空字节。
     function factoryData(PackedUserOperation calldata self) internal pure returns (bytes calldata) {
         return self.initCode.length < 20 ? Calldata.emptyBytes() : self.initCode[20:];
     }
 
-    /// @dev Returns `verificationGasLimit` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `verificationGasLimit`。
     function verificationGasLimit(PackedUserOperation calldata self) internal pure returns (uint256) {
         return uint128(self.accountGasLimits.extract_32_16(0));
     }
 
-    /// @dev Returns `callGasLimit` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `callGasLimit`。
     function callGasLimit(PackedUserOperation calldata self) internal pure returns (uint256) {
         return uint128(self.accountGasLimits.extract_32_16(16));
     }
 
-    /// @dev Returns the first section of `gasFees` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `gasFees` 的第一部分。
     function maxPriorityFeePerGas(PackedUserOperation calldata self) internal pure returns (uint256) {
         return uint128(self.gasFees.extract_32_16(0));
     }
 
-    /// @dev Returns the second section of `gasFees` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `gasFees` 的第二部分。
     function maxFeePerGas(PackedUserOperation calldata self) internal pure returns (uint256) {
         return uint128(self.gasFees.extract_32_16(16));
     }
 
-    /// @dev Returns the total gas price for the {PackedUserOperation} (ie. `maxFeePerGas` or `maxPriorityFeePerGas + basefee`).
+    /// @dev 返回 {PackedUserOperation} 的总 gas 价格（即 `maxFeePerGas` 或 `maxPriorityFeePerGas + basefee`）。
     function gasPrice(PackedUserOperation calldata self) internal view returns (uint256) {
         unchecked {
-            // Following values are "per gas"
+            // 以下值是“每 gas”
             uint256 maxPriorityFee = maxPriorityFeePerGas(self);
             uint256 maxFee = maxFeePerGas(self);
             return Math.min(maxFee, maxPriorityFee + block.basefee);
         }
     }
 
-    /// @dev Returns the first section of `paymasterAndData` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `paymasterAndData` 的第一部分。
     function paymaster(PackedUserOperation calldata self) internal pure returns (address) {
         return self.paymasterAndData.length < 52 ? address(0) : address(bytes20(self.paymasterAndData[0:20]));
     }
 
-    /// @dev Returns the second section of `paymasterAndData` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `paymasterAndData` 的第二部分。
     function paymasterVerificationGasLimit(PackedUserOperation calldata self) internal pure returns (uint256) {
         return self.paymasterAndData.length < 52 ? 0 : uint128(bytes16(self.paymasterAndData[20:36]));
     }
 
-    /// @dev Returns the third section of `paymasterAndData` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `paymasterAndData` 的第三部分。
     function paymasterPostOpGasLimit(PackedUserOperation calldata self) internal pure returns (uint256) {
         return self.paymasterAndData.length < 52 ? 0 : uint128(bytes16(self.paymasterAndData[36:52]));
     }
 
-    /// @dev Returns the fourth section of `paymasterAndData` from the {PackedUserOperation}.
+    /// @dev 从 {PackedUserOperation} 返回 `paymasterAndData` 的第四部分。
     function paymasterData(PackedUserOperation calldata self) internal pure returns (bytes calldata) {
         return self.paymasterAndData.length < 52 ? Calldata.emptyBytes() : self.paymasterAndData[52:];
     }

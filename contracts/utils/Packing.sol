@@ -36,10 +36,19 @@ pragma solidity ^0.8.20;
 library Packing {
     error OutOfRangeAccess();
 
+    // 将两个 bytes1 类型的变量 (left 和 right) “打包”或“拼接”成一个 bytes2 类型的变量。
+    // EVM 在处理数据时，其基本单位是一个 32 字节（256 位）的“字 (word)”。
+    // 这意味着，即使像 bytes1 或 bytes2 这样的小数据类型，当它们被加载到堆栈上进行操作时，也会被填充成一个完整的 32 字节的字。
     function pack_1_1(bytes1 left, bytes1 right) internal pure returns (bytes2 result) {
         assembly ("memory-safe") {
+            // not(0) 对其取反会得到一个所有 256 位都为 1 的字，即 0xFFFFFF...FF
+            // shl(248, not(0)) 向左移动 248 位后, 会得到 0xFF0000...00(第一个字节是 FF，后面 31 个字节是 00)
+            // and(left, ...) 通过与运算，保留 left 的第一个有效字节，
+            // 确保 left 变量中除了第一个字节外，没有任何“脏数据”
             left := and(left, shl(248, not(0)))
             right := and(right, shl(248, not(0)))
+            // shr(8, right) shr 是“向右移位”(Shift Right)。这条指令将清理过的 right 变量向右移动 8 位（即 1 个字节）。
+            // or(left, ...): or 是按位或操作。它将清理过的 left 和移位后的 right 进行“或”运算。
             result := or(left, shr(8, right))
         }
     }
@@ -52,10 +61,14 @@ library Packing {
         }
     }
 
+    // 将一个 bytes2 类型的变量 (left) 和一个 bytes4 类型的变量 (right) 打包成一个 bytes6 类型的变量 (result)。
     function pack_2_4(bytes2 left, bytes4 right) internal pure returns (bytes6 result) {
         assembly ("memory-safe") {
+            // shl(240, not(0)) 结果是 0xFFFF00...00 (前两个字节是 FF，后面 30 个字节是 00)
             left := and(left, shl(240, not(0)))
+            // shl(224, not(0)) 结果是 0xFFFFFFFF0000...00 (前四个字节是 FF，后面 28 个字节是 00)
             right := and(right, shl(224, not(0)))
+            // shr(16, right) 将 right 向右移动 16 位（即 2 个字节），这样 right 的前四个字节就会占据 result 的第 3 到第 6 个字节位置。
             result := or(left, shr(16, right))
         }
     }
@@ -180,10 +193,14 @@ library Packing {
         }
     }
 
+    // 将一个 bytes6 类型的变量 (left) 和一个 bytes4 类型的变量 (right) 打包成一个 bytes10 类型的变量 (result)。
     function pack_6_4(bytes6 left, bytes4 right) internal pure returns (bytes10 result) {
         assembly ("memory-safe") {
+            // shl(208, not(0)) 结果是 0xFFFFFFFFFFFF0000...00 (前六个字节是 FF，后面 26 个字节是 00)
             left := and(left, shl(208, not(0)))
+            // shl(224, not(0)) 结果是 0xFFFFFFFF0000...00 (前四个字节是 FF，后面 28 个字节是 00)
             right := and(right, shl(224, not(0)))
+            // shr(48, right) 将 right 向右移动 48 位（即 6 个字节），这样 right 的前四个字节就会占据 result 的第 7 到第 10 个字节位置。
             result := or(left, shr(48, right))
         }
     }
@@ -308,10 +325,14 @@ library Packing {
         }
     }
 
+    // 将一个 bytes10 类型的变量 (left) 和一个 bytes22 类型的变量 (right) 打包成一个 bytes32 类型的变量 (result)。
     function pack_10_22(bytes10 left, bytes22 right) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
+            // shl(176, not(0)) 结果是 0xFFFFFFFFFFFF...FF0000000000 (前十个字节是 FF，后面 22 个字节是 00)
             left := and(left, shl(176, not(0)))
+            // shl(80, not(0)) 结果是 0xFFFFFFFFFFFF...FFFF0000000000000000000000 (前二十二个字节是 FF，后面 10 个字节是 00)
             right := and(right, shl(80, not(0)))
+            // shr(80, right) 将 right 向右移动 80 位（即 10 个字节），这样 right 的前二十二个字节就会占据 result 的第 11 到第 32 个字节位置。
             result := or(left, shr(80, right))
         }
     }
@@ -1474,9 +1495,14 @@ library Packing {
         }
     }
 
+    // 从一个 bytes32（32字节）的数据块中，根据给定的字节偏移量 offset，提取出指定位置的单个字节 (bytes1)。
     function extract_32_1(bytes32 self, uint8 offset) internal pure returns (bytes1 result) {
+        // 确保偏移量在有效范围内（0-31），否则抛出异常。
         if (offset > 31) revert OutOfRangeAccess();
         assembly ("memory-safe") {
+            // shl(mul(8, offset), self) 将 self 左移 offset*8 位，相当于将目标字节移动到最高位。
+            // shl(248, not(0)) 创建一个掩码，只保留最高位的字节，其他位全部为0。
+            // and 操作将提取出目标字节，并将其存储在 result
             result := and(shl(mul(8, offset), self), shl(248, not(0)))
         }
     }
@@ -1504,9 +1530,15 @@ library Packing {
         }
     }
 
+    // 从一个 bytes32（32字节）的数据块中，根据给定的字节偏移量 offset，提取出指定位置的4个连续字节 (bytes4)。
     function extract_32_4(bytes32 self, uint8 offset) internal pure returns (bytes4 result) {
+        // 确保偏移量在有效范围内（0-28），否则抛出异常。
         if (offset > 28) revert OutOfRangeAccess();
         assembly ("memory-safe") {
+            // 通过位运算提取出指定位置的4个字节
+            // shl(mul(8, offset), self) 将 self 左移 offset*8 位，相当于将目标4个字节移动到最高位。
+            // shl(224, not(0)) 创建一个掩码，只保留最高位的4个字节，其他位全部为0。
+            // and 操作将提取出目标4个字节，并将其存储在 result
             result := and(shl(mul(8, offset), self), shl(224, not(0)))
         }
     }
@@ -1609,9 +1641,14 @@ library Packing {
         }
     }
 
+    // 从一个 bytes32（32字节）的数据块中，根据给定的字节偏移量 offset，提取出指定位置的22个连续字节 (bytes22)。
     function extract_32_22(bytes32 self, uint8 offset) internal pure returns (bytes22 result) {
+        // 确保偏移量在有效范围内（0-10），否则抛出异常。
         if (offset > 10) revert OutOfRangeAccess();
         assembly ("memory-safe") {
+            // shl(mul(8, offset), self) 将 self 左移 offset*8 位，相当于将目标22个字节移动到最高位。
+            // shl(80, not(0)) 创建一个掩码，只保留最高位的22个字节，其他位全部为0。
+            // and 操作将提取出目标22个字节，并将其存储在 result
             result := and(shl(mul(8, offset), self), shl(80, not(0)))
         }
     }

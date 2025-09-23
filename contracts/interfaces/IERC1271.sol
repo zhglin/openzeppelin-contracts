@@ -4,14 +4,55 @@
 pragma solidity >=0.5.0;
 
 /**
- * @dev Interface of the ERC-1271 standard signature validation method for
- * contracts as defined in https://eips.ethereum.org/EIPS/eip-1271[ERC-1271].
+ * @dev ERC-1271 标准签名验证方法的接口，用于合约，
+ * 定义在 https://eips.ethereum.org/EIPS/eip-1271[ERC-1271]。
  */
+/*
+    “ERC-1271 允许智能合约像外部拥有账户（EOA）一样‘签署’消息，并提供一个标准化的方法供其他合约验证这些签名。”
+        1. 什么是“外部拥有账户（EOA）”？以及它们如何“签署”消息？
+            * EOA (Externally Owned Account)：就是我们通常所说的普通以太坊账户，由一个私钥控制。例如，你在 MetaMask 中创建的账户就是 EOA。
+            * EOA 如何“签署”消息：当一个 EOA 签署一条消息时，它会使用其私钥对消息的哈希值进行加密签名。这个签名是一个数学证明，表明：
+                1. 消息的哈希值在签名时是已知的。
+                2. 拥有对应私钥的人同意了这条消息。
+            * EOA 签名的验证：在链上，可以通过 Solidity 内置的 ecrecover 函数来验证 EOA 签名。ecrecover
+                函数接收消息的哈希值和签名，然后返回签署者的地址。如果返回的地址与声称的签署者地址匹配，则签名有效。
+        2. 为什么智能合约不能像 EOA 那样“签署”消息？
+            * 智能合约没有私钥：这是最根本的原因。智能合约是由代码控制的，它没有私钥来生成传统的加密签名。
+            * `ecrecover` 不适用：因此，你无法使用 ecrecover 函数来验证一个智能合约的“签名”，因为智能合约无法生成一个 ecrecover 能够解析的私钥签名。
+        3. ERC-1271 解决了什么问题？
+            随着智能合约钱包（账户抽象）的兴起，越来越多的用户通过智能合约来管理他们的资产和身份。
+            这些智能合约钱包也需要参与到依赖签名的各种链下或链上协议中（例如，登录 DApp、授权交易、证明身份等）。
+            如果没有 ERC-1271，DApp 或其他合约就无法统一地验证来自智能合约钱包的“同意”或“授权”，这将极大地限制智能合约钱包的功能和普及。
+        4. ERC-1271 如何让智能合约“签署”消息？
+            ERC-1271 的核心思想是：智能合约不生成传统的加密签名，而是提供一个标准化的函数，让其他合约来“询问”它是否同意某个消息。
+            这个标准化的函数就是：
+                1 function isValidSignature(bytes32 _hash, bytes calldata _signature) external view returns (bytes4 magicValue);
+                    * “签署”的含义改变：对于智能合约来说，“签署”不再是生成一个加密签名，而是实现 `isValidSignature` 这个函数。
+                    * 验证方式改变：当其他合约或 DApp 想要验证一个智能合约的“签名”时，它不会尝试用 ecrecover，
+                        而是直接调用该智能合约的 `isValidSignature` 函数。
+                    * 内部逻辑：智能合约在 isValidSignature 函数内部可以执行任何自定义逻辑来判断这个“签名”是否有效。例如：
+                        * 检查是否有多重签名者的批准。
+                        * 检查是否满足某个时间锁条件。
+                        * 检查是否由某个特定的模块进行了授权（就像 ERC-7579 中那样）。
+                        * 甚至可以检查 _signature 参数是否是一个特定的“密码”或“授权码”。
+                    * 标准化返回值：
+                        * 如果智能合约的内部逻辑判断“签名”有效，它必须返回一个特定的魔术值 `0x1626ba7e`。
+                        * 如果判断无效，它必须返回 0xffffffff。
+        5. “提供一个标准化的方法供其他合约验证这些签名”
+            * 统一接口：ERC-1271 提供了这个统一的 isValidSignature 接口。这意味着任何 DApp
+                或协议，只要它想支持智能合约签名，就只需要知道并调用这个函数。
+            * 无需关心内部实现：验证者不需要知道智能合约内部是如何判断签名的，它只需要调用 isValidSignature 并检查返回的 magicValue
+                即可。这就像你不需要知道银行内部如何验证你的身份，你只需要出示身份证，银行告诉你“通过”或“不通过”即可。
+
+    总结
+        ERC-1271 并没有让智能合约拥有私钥，而是通过定义一个通用的“询问”机制，让智能合约能够以可编程的方式来表达对某个消息的“同意”或“授权”。
+        这个机制使得智能合约能够无缝地融入到依赖签名的以太坊生态系统中，极大地增强了智能合约钱包的功能性和互操作性。
+*/
 interface IERC1271 {
     /**
-     * @dev Should return whether the signature provided is valid for the provided data
-     * @param hash      Hash of the data to be signed
-     * @param signature Signature byte array associated with `hash`
+     * @dev 应返回所提供的签名对于所提供的数据是否有效
+     * @param hash      待签名数据的哈希值
+     * @param signature 与 `hash` 关联的签名字节数组
      */
     function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4 magicValue);
 }
