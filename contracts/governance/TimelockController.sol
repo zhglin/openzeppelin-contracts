@@ -10,27 +10,46 @@ import {Address} from "../utils/Address.sol";
 import {IERC165} from "../utils/introspection/ERC165.sol";
 
 /**
- * @dev Contract module which acts as a timelocked controller. When set as the
- * owner of an `Ownable` smart contract, it enforces a timelock on all
- * `onlyOwner` maintenance operations. This gives time for users of the
- * controlled contract to exit before a potentially dangerous maintenance
- * operation is applied.
+ * @dev 合约模块，充当一个带时间锁的控制器。当被设置为一个 `Ownable` 智能合约的所有者时，
+ * 它会对所有 `onlyOwner` 的维护操作强制执行一个时间锁。
+ * 这给了被控制合约的用户在潜在危险的维护操作被应用前退出的时间。
  *
- * By default, this contract is self administered, meaning administration tasks
- * have to go through the timelock process. The proposer (resp executor) role
- * is in charge of proposing (resp executing) operations. A common use case is
- * to position this {TimelockController} as the owner of a smart contract, with
- * a multisig or a DAO as the sole proposer.
+ * 默认情况下，此合约是自我管理的，意味着管理任务必须经过时间锁流程。
+ * 提案者（proposer）角色负责提议操作，
+ * 执行者（executor）角色负责执行操作。
+ * 一个常见的用例是将此 {TimelockController} 设置为某个智能合约的所有者，并将一个多签钱包或一个 DAO 设置为唯一的提案者。
+ *  通过继承Ownable.sol合约的合约可以使用 {_transferOwnership} 函数将所有权转移到时间锁合约。
+ *  所有需要所有者权限的操作（即 onlyOwner 函数），现在都必须经过“提案 -> 投票 -> 等待 -> 执行”的流程。
+ * 
+ * 执行者角色通常设置为 `address(0)`，这意味着任何人都可以执行就绪的操作。
+ * 这允许任何人帮助完成时间锁的执行过程，而无需信任特定的执行者。
+ * 取消者（canceller）角色允许撤销待定的操作。      
  */
+/*
+    predecessor参数是指前置操作的ID。如果一个操作有前置操作，那么在执行这个操作之前，必须先确保前置操作已经完成。
+    对于复杂的、需要多个步骤才能完成的治理任务，执行顺序至关重要。如果顺序错误，可能会导致整个任务失败，甚至让协议处于一个不安全或损坏的状态。
+    通过使用predecessor参数，可以确保操作按照正确的顺序执行，从而维护协议的完整性和安全性。
+*/
+/*
+    ERC721Holder, ERC1155Holder,提供接受ERC721和ERC1155代币的能力。
+    这对于时间锁合约来说是有用的，因为它可能需要持有这些类型的代币，作为治理提案的一部分。
+    例如，一个治理提案可能涉及将某些ERC721或ERC1155代币转移到另一个地址。
+*/
 contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
     bytes32 public constant CANCELLER_ROLE = keccak256("CANCELLER_ROLE");
+    
+    // 已完成的操作的时间戳
     uint256 internal constant _DONE_TIMESTAMP = uint256(1);
 
+    // 操作 ID 到时间戳的映射
     mapping(bytes32 id => uint256) private _timestamps;
+
+    // 最小延迟时间（以秒为单位）
     uint256 private _minDelay;
 
+    // 操作的状态
     enum OperationState {
         Unset,
         Waiting,
@@ -39,36 +58,35 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Mismatch between the parameters length for an operation call.
+     * @dev 操作调用的参数长度不匹配。
      */
     error TimelockInvalidOperationLength(uint256 targets, uint256 payloads, uint256 values);
 
     /**
-     * @dev The schedule operation doesn't meet the minimum delay.
+     * @dev 计划的操作不满足最小延迟时间。
      */
     error TimelockInsufficientDelay(uint256 delay, uint256 minDelay);
 
     /**
-     * @dev The current state of an operation is not as required.
-     * The `expectedStates` is a bitmap with the bits enabled for each OperationState enum position
-     * counting from right to left.
+     * @dev 操作的当前状态不符合要求。
+     * `expectedStates` 是一个位图，其中启用的位对应于 OperationState 枚举中从右到左计数的位置。
      *
-     * See {_encodeStateBitmap}.
+     * 参见 {_encodeStateBitmap}。
      */
     error TimelockUnexpectedOperationState(bytes32 operationId, bytes32 expectedStates);
 
     /**
-     * @dev The predecessor to an operation not yet done.
+     * @dev 操作的前置操作尚未完成。
      */
     error TimelockUnexecutedPredecessor(bytes32 predecessorId);
 
     /**
-     * @dev The caller account is not authorized.
+     * @dev 调用者账户未被授权。
      */
     error TimelockUnauthorizedCaller(address caller);
 
     /**
-     * @dev Emitted when a call is scheduled as part of operation `id`.
+     * @dev 当一个调用作为操作 `id` 的一部分被计划时触发。
      */
     event CallScheduled(
         bytes32 indexed id,
@@ -81,54 +99,53 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     );
 
     /**
-     * @dev Emitted when a call is performed as part of operation `id`.
+     * @dev 当一个调用作为操作 `id` 的一部分被执行时触发。
      */
     event CallExecuted(bytes32 indexed id, uint256 indexed index, address target, uint256 value, bytes data);
 
     /**
-     * @dev Emitted when new proposal is scheduled with non-zero salt.
+     * @dev 当一个带有非零盐值的新提案被计划时触发。
      */
     event CallSalt(bytes32 indexed id, bytes32 salt);
 
     /**
-     * @dev Emitted when operation `id` is cancelled.
+     * @dev 当操作 `id` 被取消时触发。
      */
     event Cancelled(bytes32 indexed id);
 
     /**
-     * @dev Emitted when the minimum delay for future operations is modified.
+     * @dev 当未来操作的最小延迟时间被修改时触发。
      */
     event MinDelayChange(uint256 oldDuration, uint256 newDuration);
 
     /**
-     * @dev Initializes the contract with the following parameters:
+     * @dev 使用以下参数初始化合约：
      *
-     * - `minDelay`: initial minimum delay in seconds for operations
-     * - `proposers`: accounts to be granted proposer and canceller roles
-     * - `executors`: accounts to be granted executor role
-     * - `admin`: optional account to be granted admin role; disable with zero address
+     * - `minDelay`: 操作的初始最小延迟时间（以秒为单位）
+     * - `proposers`: 将被授予提案者和取消者角色的账户
+     * - `executors`: 将被授予执行者角色的账户
+     * - `admin`: 可选的将被授予管理员角色的账户；使用零地址禁用
      *
-     * IMPORTANT: The optional admin can aid with initial configuration of roles after deployment
-     * without being subject to delay, but this role should be subsequently renounced in favor of
-     * administration through timelocked proposals. Previous versions of this contract would assign
-     * this admin to the deployer automatically and should be renounced as well.
+     * 重要提示：可选的管理员可以在部署后帮助进行角色的初始配置，而无需受制于时间延迟，
+     * 但此角色随后应被放弃，以支持通过带时间锁的提案进行管理。
+     * 此合约的先前版本会自动将此管理员分配给部署者，也应同样放弃。
      */
     constructor(uint256 minDelay, address[] memory proposers, address[] memory executors, address admin) {
-        // self administration
+        // 自我管理
         _grantRole(DEFAULT_ADMIN_ROLE, address(this));
 
-        // optional admin
+        // 可选的管理员
         if (admin != address(0)) {
             _grantRole(DEFAULT_ADMIN_ROLE, admin);
         }
 
-        // register proposers and cancellers
+        // 注册提案者和取消者
         for (uint256 i = 0; i < proposers.length; ++i) {
             _grantRole(PROPOSER_ROLE, proposers[i]);
             _grantRole(CANCELLER_ROLE, proposers[i]);
         }
 
-        // register executors
+        // 注册执行者
         for (uint256 i = 0; i < executors.length; ++i) {
             _grantRole(EXECUTOR_ROLE, executors[i]);
         }
@@ -138,20 +155,18 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Modifier to make a function callable only by a certain role. In
-     * addition to checking the sender's role, `address(0)` 's role is also
-     * considered. Granting a role to `address(0)` is equivalent to enabling
-     * this role for everyone.
+     * @dev 修改器，使函数只能由特定角色调用。除了检查发送者的角色外，
+     * `address(0)` 的角色也会被考虑。将角色授予 `address(0)` 等同于为所有人启用此角色。
      */
     modifier onlyRoleOrOpenRole(bytes32 role) {
-        if (!hasRole(role, address(0))) {
+        if (!hasRole(role, address(0))) { // address(0) 具有此角色
             _checkRole(role, _msgSender());
         }
         _;
     }
 
     /**
-     * @dev Contract might receive/hold ETH as part of the maintenance process.
+     * @dev 作为维护过程的一部分，合约可能会接收/持有 ETH。
      */
     receive() external payable virtual {}
 
@@ -163,15 +178,14 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Returns whether an id corresponds to a registered operation. This
-     * includes both Waiting, Ready, and Done operations.
+     * @dev 返回一个 id 是否对应一个已注册的操作。这包括等待中、就绪和已完成的操作。
      */
     function isOperation(bytes32 id) public view returns (bool) {
         return getOperationState(id) != OperationState.Unset;
     }
 
     /**
-     * @dev Returns whether an operation is pending or not. Note that a "pending" operation may also be "ready".
+     * @dev 返回一个操作是否处于待定状态。请注意，“待定”操作也可能是“就绪”状态。
      */
     function isOperationPending(bytes32 id) public view returns (bool) {
         OperationState state = getOperationState(id);
@@ -179,29 +193,28 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Returns whether an operation is ready for execution. Note that a "ready" operation is also "pending".
+     * @dev 返回一个操作是否已准备好执行。请注意，“就绪”操作也是“待定”状态。
      */
     function isOperationReady(bytes32 id) public view returns (bool) {
         return getOperationState(id) == OperationState.Ready;
     }
 
     /**
-     * @dev Returns whether an operation is done or not.
+     * @dev 返回一个操作是否已完成。
      */
     function isOperationDone(bytes32 id) public view returns (bool) {
         return getOperationState(id) == OperationState.Done;
     }
 
     /**
-     * @dev Returns the timestamp at which an operation becomes ready (0 for
-     * unset operations, 1 for done operations).
+     * @dev 返回一个操作变为就绪状态的时间戳（对于未设置的操作为 0，对于已完成的操作为 1）。
      */
     function getTimestamp(bytes32 id) public view virtual returns (uint256) {
         return _timestamps[id];
     }
 
     /**
-     * @dev Returns operation state.
+     * @dev 返回操作的状态。
      */
     function getOperationState(bytes32 id) public view virtual returns (OperationState) {
         uint256 timestamp = getTimestamp(id);
@@ -217,17 +230,16 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Returns the minimum delay in seconds for an operation to become valid.
+     * @dev 返回一个操作生效所需的最小延迟时间（以秒为单位）。
      *
-     * This value can be changed by executing an operation that calls `updateDelay`.
+     * 这个值可以通过执行一个调用 `updateDelay` 的操作来更改。
      */
     function getMinDelay() public view virtual returns (uint256) {
         return _minDelay;
     }
 
     /**
-     * @dev Returns the identifier of an operation containing a single
-     * transaction.
+     * @dev 返回包含单个交易的操作的标识符。
      */
     function hashOperation(
         address target,
@@ -240,8 +252,7 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Returns the identifier of an operation containing a batch of
-     * transactions.
+     * @dev 返回包含一批交易的操作的标识符。
      */
     function hashOperationBatch(
         address[] calldata targets,
@@ -254,13 +265,13 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Schedule an operation containing a single transaction.
+     * @dev 计划一个包含单个交易的操作。
      *
-     * Emits {CallSalt} if salt is nonzero, and {CallScheduled}.
+     * 如果 salt 非零，则触发 {CallSalt} 事件，并触发 {CallScheduled} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must have the 'proposer' role.
+     * - 调用者必须拥有“提案者”角色。
      */
     function schedule(
         address target,
@@ -279,13 +290,13 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Schedule an operation containing a batch of transactions.
+     * @dev 计划一个包含一批交易的操作。
      *
-     * Emits {CallSalt} if salt is nonzero, and one {CallScheduled} event per transaction in the batch.
+     * 如果 salt 非零，则触发 {CallSalt} 事件，并为批处理中的每个交易触发一个 {CallScheduled} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must have the 'proposer' role.
+     * - 调用者必须拥有“提案者”角色。
      */
     function scheduleBatch(
         address[] calldata targets,
@@ -310,7 +321,7 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Schedule an operation that is to become valid after a given delay.
+     * @dev 计划一个在给定延迟后生效的操作。
      */
     function _schedule(bytes32 id, uint256 delay) private {
         if (isOperation(id)) {
@@ -324,11 +335,11 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Cancel an operation.
+     * @dev 取消一个操作。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must have the 'canceller' role.
+     * - 调用者必须拥有“取消者”角色。
      */
     function cancel(bytes32 id) public virtual onlyRole(CANCELLER_ROLE) {
         if (!isOperationPending(id)) {
@@ -343,16 +354,16 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Execute an (ready) operation containing a single transaction.
+     * @dev 执行一个（已就绪的）包含单个交易的操作。
      *
-     * Emits a {CallExecuted} event.
+     * 触发一个 {CallExecuted} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must have the 'executor' role.
+     * - 调用者必须拥有“执行者”角色。
      */
-    // This function can reenter, but it doesn't pose a risk because _afterCall checks that the proposal is pending,
-    // thus any modifications to the operation during reentrancy should be caught.
+    // 这个函数可能重入，但不存在风险，因为 _afterCall 会检查提案是否处于待定状态，
+    // 因此在重入期间对操作的任何修改都应该被捕获。
     // slither-disable-next-line reentrancy-eth
     function execute(
         address target,
@@ -370,16 +381,16 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Execute an (ready) operation containing a batch of transactions.
+     * @dev 执行一个（已就绪的）包含一批交易的操作。
      *
-     * Emits one {CallExecuted} event per transaction in the batch.
+     * 为批处理中的每个交易触发一个 {CallExecuted} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must have the 'executor' role.
+     * - 调用者必须拥有“执行者”角色。
      */
-    // This function can reenter, but it doesn't pose a risk because _afterCall checks that the proposal is pending,
-    // thus any modifications to the operation during reentrancy should be caught.
+    // 这个函数可能重入，但不存在风险，因为 _afterCall 会检查提案是否处于待定状态，
+    // 因此在重入期间对操作的任何修改都应该被捕获。
     // slither-disable-next-line reentrancy-eth
     function executeBatch(
         address[] calldata targets,
@@ -406,47 +417,52 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Execute an operation's call.
+     * @dev 执行一个操作的调用。
      */
     function _execute(address target, uint256 value, bytes calldata data) internal virtual {
+        // 执行调用
         (bool success, bytes memory returndata) = target.call{value: value}(data);
         Address.verifyCallResult(success, returndata);
     }
 
     /**
-     * @dev Checks before execution of an operation's calls.
+     * @dev 在执行操作调用之前进行检查。
      */
     function _beforeCall(bytes32 id, bytes32 predecessor) private view {
+        // 是否就绪
         if (!isOperationReady(id)) {
             revert TimelockUnexpectedOperationState(id, _encodeStateBitmap(OperationState.Ready));
         }
+        // 前置操作是否已完成
         if (predecessor != bytes32(0) && !isOperationDone(predecessor)) {
             revert TimelockUnexecutedPredecessor(predecessor);
         }
     }
 
     /**
-     * @dev Checks after execution of an operation's calls.
+     * @dev 在执行操作调用之后进行检查。
      */
     function _afterCall(bytes32 id) private {
         if (!isOperationReady(id)) {
             revert TimelockUnexpectedOperationState(id, _encodeStateBitmap(OperationState.Ready));
         }
+        // 设置完成状态
         _timestamps[id] = _DONE_TIMESTAMP;
     }
 
     /**
-     * @dev Changes the minimum timelock duration for future operations.
+     * @dev 更改未来操作的最小时间锁时长。
      *
-     * Emits a {MinDelayChange} event.
+     * 触发一个 {MinDelayChange} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - the caller must be the timelock itself. This can only be achieved by scheduling and later executing
-     * an operation where the timelock is the target and the data is the ABI-encoded call to this function.
+     * - 调用者必须是时间锁合约本身。这只能通过计划并随后执行一个
+     *   操作来实现，其中时间锁是目标，数据是此函数的 ABI 编码调用。
      */
     function updateDelay(uint256 newDelay) external virtual {
         address sender = _msgSender();
+        // 只能由合约本身调用,通过schedule函数调用
         if (sender != address(this)) {
             revert TimelockUnauthorizedCaller(sender);
         }
@@ -455,17 +471,18 @@ contract TimelockController is AccessControl, ERC721Holder, ERC1155Holder {
     }
 
     /**
-     * @dev Encodes a `OperationState` into a `bytes32` representation where each bit enabled corresponds to
-     * the underlying position in the `OperationState` enum. For example:
+     * @dev 将一个 `OperationState` 编码为一个 `bytes32` 表示，其中每个启用的位对应于
+     * `OperationState` 枚举中的基础位置。例如：
      *
      * 0x000...1000
      *   ^^^^^^----- ...
-     *         ^---- Done
-     *          ^--- Ready
-     *           ^-- Waiting
-     *            ^- Unset
+     *         ^---- Done (已完成)
+     *          ^--- Ready (就绪)
+     *           ^-- Waiting (等待中)
+     *            ^- Unset (未设置)
      */
     function _encodeStateBitmap(OperationState operationState) internal pure returns (bytes32) {
+        // 它将数字 1 的二进制表示向左移动指定的位数。
         return bytes32(1 << uint8(operationState));
     }
 }

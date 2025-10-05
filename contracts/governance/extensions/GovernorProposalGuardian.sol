@@ -6,9 +6,9 @@ pragma solidity ^0.8.24;
 import {Governor} from "../Governor.sol";
 
 /**
- * @dev Extension of {Governor} which adds a proposal guardian that can cancel proposals at any stage in the proposal's lifecycle.
+ * @dev {Governor} 的扩展，增加了一个提案监护人，可以在提案生命周期的任何阶段取消提案。
  *
- * NOTE: if the proposal guardian is not configured, then proposers take this role for their proposals.
+ * 注意：如果未配置提案监护人，则提案人将为其提案担任此角色。
  */
 abstract contract GovernorProposalGuardian is Governor {
     address private _proposalGuardian;
@@ -16,25 +16,25 @@ abstract contract GovernorProposalGuardian is Governor {
     event ProposalGuardianSet(address oldProposalGuardian, address newProposalGuardian);
 
     /**
-     * @dev Getter that returns the address of the proposal guardian.
+     * @dev 返回提案监护人地址的 Getter 函数。
      */
     function proposalGuardian() public view virtual returns (address) {
         return _proposalGuardian;
     }
 
     /**
-     * @dev Update the proposal guardian's address. This operation can only be performed through a governance proposal.
+     * @dev 更新提案监护人的地址。此操作只能通过治理提案执行。
      *
-     * Emits a {ProposalGuardianSet} event.
+     * 发出 {ProposalGuardianSet} 事件。
      */
     function setProposalGuardian(address newProposalGuardian) public virtual onlyGovernance {
         _setProposalGuardian(newProposalGuardian);
     }
 
     /**
-     * @dev Internal setter for the proposal guardian.
+     * @dev 提案监护人的内部 setter 函数。
      *
-     * Emits a {ProposalGuardianSet} event.
+     * 发出 {ProposalGuardianSet} 事件。
      */
     function _setProposalGuardian(address newProposalGuardian) internal virtual {
         emit ProposalGuardianSet(_proposalGuardian, newProposalGuardian);
@@ -42,11 +42,11 @@ abstract contract GovernorProposalGuardian is Governor {
     }
 
     /**
-     * @dev Override {Governor-_validateCancel} to implement the extended cancellation logic.
+     * @dev 重写 {Governor-_validateCancel} 以实现扩展的取消逻辑。
      *
-     * * The {proposalGuardian} can cancel any proposal at any point.
-     * * If no proposal guardian is set, the {IGovernor-proposalProposer} can cancel their proposals at any point.
-     * * In any case, permissions defined in {Governor-_validateCancel} (or another override) remains valid.
+     * * {proposalGuardian} 可以在任何时间点取消任何提案。
+     * * 如果未设置提案监护人，{IGovernor-proposalProposer} 可以在任何时间点取消他们的提案。
+     * * 在任何情况下，在 {Governor-_validateCancel}（或其他重写）中定义的权限仍然有效。
      */
     function _validateCancel(uint256 proposalId, address caller) internal view virtual override returns (bool) {
         address guardian = proposalGuardian();

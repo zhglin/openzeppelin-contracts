@@ -9,8 +9,7 @@ import {IERC5805} from "../../interfaces/IERC5805.sol";
 import {Time} from "../../utils/types/Time.sol";
 
 /**
- * @dev Extension of {Governor} for voting weight extraction from an {ERC20Votes} token, or since v4.5 an {ERC721Votes}
- * token.
+ * @dev {Governor} 的扩展，用于从 {ERC20Votes} 代币（或自 v4.5 版本起的 {ERC721Votes} 代币）中提取投票权重。
  */
 abstract contract GovernorVotes is Governor {
     IERC5805 private immutable _token;
@@ -20,15 +19,15 @@ abstract contract GovernorVotes is Governor {
     }
 
     /**
-     * @dev The token that voting power is sourced from.
+     * @dev 投票权的来源代币。
      */
     function token() public view virtual returns (IERC5805) {
         return _token;
     }
 
     /**
-     * @dev Clock (as specified in ERC-6372) is set to match the token's clock. Fallback to block numbers if the token
-     * does not implement ERC-6372.
+     * @dev 时钟（如 ERC-6372 中所规定）被设置为与代币的时钟匹配。
+     * 如果代币未实现 ERC-6372，则回退到使用区块号。
      */
     function clock() public view virtual override returns (uint48) {
         try token().clock() returns (uint48 timepoint) {
@@ -39,7 +38,7 @@ abstract contract GovernorVotes is Governor {
     }
 
     /**
-     * @dev Machine-readable description of the clock as specified in ERC-6372.
+     * @dev ERC-6372 中规定的时钟的机器可读描述。
      */
     // solhint-disable-next-line func-name-mixedcase
     function CLOCK_MODE() public view virtual override returns (string memory) {
@@ -51,7 +50,7 @@ abstract contract GovernorVotes is Governor {
     }
 
     /**
-     * Read the voting weight from the token's built in snapshot mechanism (see {Governor-_getVotes}).
+     * @dev 从代币内置的快照机制中读取投票权重（参见 {Governor-_getVotes}）。
      */
     function _getVotes(
         address account,

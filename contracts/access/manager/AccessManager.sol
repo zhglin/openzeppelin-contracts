@@ -109,6 +109,7 @@ contract AccessManager is Context, Multicall, IAccessManager {
     uint64 public constant PUBLIC_ROLE = type(uint64).max; // 2**64-1
 
     // 目标合约的角色配置
+    // mode是占位符名称, 指的是在 mapping 声明中赋予类型的一个临时的、用于描述目的的名字。
     mapping(address target => TargetConfig mode) private _targets;
     // 角色详情
     mapping(uint64 roleId => Role) private _roles;

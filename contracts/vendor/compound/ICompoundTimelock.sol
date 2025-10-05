@@ -6,6 +6,12 @@ pragma solidity >=0.6.9;
 /**
  * https://github.com/compound-finance/compound-protocol/blob/master/contracts/Timelock.sol[Compound timelock] interface
  */
+ /*
+    1. 它是第三方标准，而非 OZ 自创
+        Compound 时间锁是 Compound 协议 设计和实现的，它是一个在 DeFi 领域被广泛采用的“外部标准”。
+        OpenZeppelin 在这里扮演的角色是“连接器”或“适配器”。他们提供 GovernorTimelockCompound 这个模块，
+        目的是让使用 OpenZeppelin Governor 的项目能够方便地与已经存在的、广泛使用的 Compound 生态系统进行集成。
+ */
 interface ICompoundTimelock {
     event NewAdmin(address indexed newAdmin);
     event NewPendingAdmin(address indexed newPendingAdmin);

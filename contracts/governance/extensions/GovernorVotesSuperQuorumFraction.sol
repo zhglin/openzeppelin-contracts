@@ -11,9 +11,8 @@ import {SafeCast} from "../../utils/math/SafeCast.sol";
 import {Checkpoints} from "../../utils/structs/Checkpoints.sol";
 
 /**
- * @dev Extension of {GovernorVotesQuorumFraction} with a super quorum expressed as a
- * fraction of the total supply. Proposals that meet the super quorum (and have a majority of for votes) advance to
- * the `Succeeded` state before the proposal deadline.
+ * @dev {GovernorVotesQuorumFraction} 的扩展，带有一个表示为总供应量一部分的超级法定人数。
+ * 满足超级法定人数（并且赞成票占多数）的提案会在提案截止日期前进入 `Succeeded` 状态。
  */
 abstract contract GovernorVotesSuperQuorumFraction is GovernorVotesQuorumFraction, GovernorSuperQuorum {
     using Checkpoints for Checkpoints.Trace208;
@@ -23,76 +22,75 @@ abstract contract GovernorVotesSuperQuorumFraction is GovernorVotesQuorumFractio
     event SuperQuorumNumeratorUpdated(uint256 oldSuperQuorumNumerator, uint256 newSuperQuorumNumerator);
 
     /**
-     * @dev The super quorum set is not valid as it exceeds the quorum denominator.
+     * @dev 设置的超级法定人数无效，因为它超过了法定人数的分母。
      */
     error GovernorInvalidSuperQuorumFraction(uint256 superQuorumNumerator, uint256 denominator);
 
     /**
-     * @dev The super quorum set is not valid as it is smaller or equal to the quorum.
+     * @dev 设置的超级法定人数无效，因为它小于或等于法定人数。
      */
     error GovernorInvalidSuperQuorumTooSmall(uint256 superQuorumNumerator, uint256 quorumNumerator);
 
     /**
-     * @dev The quorum set is not valid as it exceeds the super quorum.
+     * @dev 设置的法定人数无效，因为它超过了超级法定人数。
      */
     error GovernorInvalidQuorumTooLarge(uint256 quorumNumerator, uint256 superQuorumNumerator);
 
     /**
-     * @dev Initialize super quorum as a fraction of the token's total supply.
+     * @dev 将超级法定人数初始化为代币总供应量的一部分。
      *
-     * The super quorum is specified as a fraction of the token's total supply and has to
-     * be greater than the quorum.
+     * 超级法定人数被指定为代币总供应量的一部分，并且必须大于法定人数。
      */
     constructor(uint256 superQuorumNumeratorValue) {
         _updateSuperQuorumNumerator(superQuorumNumeratorValue);
     }
 
     /**
-     * @dev Returns the current super quorum numerator.
+     * @dev 返回当前的超级法定人数分子。
      */
     function superQuorumNumerator() public view virtual returns (uint256) {
         return _superQuorumNumeratorHistory.latest();
     }
 
     /**
-     * @dev Returns the super quorum numerator at a specific `timepoint`.
+     * @dev 返回特定 `timepoint` 的超级法定人数分子。
      */
     function superQuorumNumerator(uint256 timepoint) public view virtual returns (uint256) {
         return _optimisticUpperLookupRecent(_superQuorumNumeratorHistory, timepoint);
     }
 
     /**
-     * @dev Returns the super quorum for a `timepoint`, in terms of number of votes: `supply * numerator / denominator`.
-     * See {GovernorSuperQuorum-superQuorum} for more details.
+     * @dev 返回一个 `timepoint` 的超级法定人数，以投票数表示：`供应量 * 分子 / 分母`。
+     * 更多详情请参见 {GovernorSuperQuorum-superQuorum}。
      */
     function superQuorum(uint256 timepoint) public view virtual override returns (uint256) {
         return Math.mulDiv(token().getPastTotalSupply(timepoint), superQuorumNumerator(timepoint), quorumDenominator());
     }
 
     /**
-     * @dev Changes the super quorum numerator.
+     * @dev 更改超级法定人数分子。
      *
-     * Emits a {SuperQuorumNumeratorUpdated} event.
+     * 发出 {SuperQuorumNumeratorUpdated} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - Must be called through a governance proposal.
-     * - New super quorum numerator must be smaller or equal to the denominator.
-     * - New super quorum numerator must be greater than or equal to the quorum numerator.
+     * - 必须通过治理提案调用。
+     * - 新的超级法定人数分子必须小于或等于分母。
+     * - 新的超级法定人数分子必须大于或等于法定人数分子。
      */
     function updateSuperQuorumNumerator(uint256 newSuperQuorumNumerator) public virtual onlyGovernance {
         _updateSuperQuorumNumerator(newSuperQuorumNumerator);
     }
 
     /**
-     * @dev Changes the super quorum numerator.
+     * @dev 更改超级法定人数分子。
      *
-     * Emits a {SuperQuorumNumeratorUpdated} event.
+     * 发出 {SuperQuorumNumeratorUpdated} 事件。
      *
-     * Requirements:
+     * 要求：
      *
-     * - New super quorum numerator must be smaller or equal to the denominator.
-     * - New super quorum numerator must be greater than or equal to the quorum numerator.
+     * - 新的超级法定人数分子必须小于或等于分母。
+     * - 新的超级法定人数分子必须大于或等于法定人数分子。
      */
     function _updateSuperQuorumNumerator(uint256 newSuperQuorumNumerator) internal virtual {
         uint256 denominator = quorumDenominator();
@@ -112,11 +110,10 @@ abstract contract GovernorVotesSuperQuorumFraction is GovernorVotesQuorumFractio
     }
 
     /**
-     * @dev Overrides {GovernorVotesQuorumFraction-_updateQuorumNumerator} to ensure the super
-     * quorum numerator is greater than or equal to the quorum numerator.
+     * @dev 重写 {GovernorVotesQuorumFraction-_updateQuorumNumerator} 以确保超级法定人数分子大于或等于法定人数分子。
      */
     function _updateQuorumNumerator(uint256 newQuorumNumerator) internal virtual override {
-        // Ignoring check when the superQuorum was never set (construction sets quorum before superQuorum)
+        // 当 superQuorum 从未设置时忽略检查（构造函数在 superQuorum 之前设置 quorum）
         if (_superQuorumNumeratorHistory.length() > 0) {
             uint256 superQuorumNumerator_ = superQuorumNumerator();
             if (newQuorumNumerator > superQuorumNumerator_) {
