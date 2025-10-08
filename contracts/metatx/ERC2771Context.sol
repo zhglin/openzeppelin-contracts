@@ -6,27 +6,24 @@ pragma solidity ^0.8.20;
 import {Context} from "../utils/Context.sol";
 
 /**
- * @dev Context variant with ERC-2771 support.
+ * @dev 带有 ERC-2771 支持的 Context 变体。
  *
- * WARNING: Avoid using this pattern in contracts that rely in a specific calldata length as they'll
- * be affected by any forwarder whose `msg.data` is suffixed with the `from` address according to the ERC-2771
- * specification adding the address size in bytes (20) to the calldata size. An example of an unexpected
- * behavior could be an unintended fallback (or another function) invocation while trying to invoke the `receive`
- * function only accessible if `msg.data.length == 0`.
+ * 警告：在依赖特定 calldata 长度的合约中避免使用此模式，
+ * 因为它们会受到任何根据 ERC-2771 规范在其 `msg.data` 后缀 `from` 地址的转发器的影响，
+ * 这会将地址大小（20字节）添加到 calldata 大小中。
+ * 一个意外行为的例子可能是在尝试调用仅在 `msg.data.length == 0` 时可访问的 `receive` 函数时，无意中调用了 fallback（或其他函数）。
  *
- * WARNING: The usage of `delegatecall` in this contract is dangerous and may result in context corruption.
- * Any forwarded request to this contract triggering a `delegatecall` to itself will result in an invalid {_msgSender}
- * recovery.
+ * 警告：在此合约中使用 `delegatecall` 是危险的，并可能导致上下文损坏。
+ * 任何转发到此合约并触发对自身的 `delegatecall` 的请求都将导致无效的 {_msgSender} 恢复。
  */
 abstract contract ERC2771Context is Context {
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
     address private immutable _trustedForwarder;
 
     /**
-     * @dev Initializes the contract with a trusted forwarder, which will be able to
-     * invoke functions on this contract on behalf of other accounts.
+     * @dev 使用一个受信任的转发器初始化合约，该转发器将能够代表其他账户调用此合约上的函数。
      *
-     * NOTE: The trusted forwarder can be replaced by overriding {trustedForwarder}.
+     * 注意：可以通过重写 {trustedForwarder} 来替换受信任的转发器。
      */
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(address trustedForwarder_) {
@@ -34,29 +31,28 @@ abstract contract ERC2771Context is Context {
     }
 
     /**
-     * @dev Returns the address of the trusted forwarder.
+     * @dev 返回受信任的转发器的地址。
      */
     function trustedForwarder() public view virtual returns (address) {
         return _trustedForwarder;
     }
 
     /**
-     * @dev Indicates whether any particular address is the trusted forwarder.
+     * @dev 指示任何特定地址是否是受信任的转发器。
      */
     function isTrustedForwarder(address forwarder) public view virtual returns (bool) {
         return forwarder == trustedForwarder();
     }
 
     /**
-     * @dev Override for `msg.sender`. Defaults to the original `msg.sender` whenever
-     * a call is not performed by the trusted forwarder or the calldata length is less than
-     * 20 bytes (an address length).
+     * @dev `msg.sender` 的重写。当调用不是由受信任的转发器执行，或者 calldata 长度小于20字节（一个地址的长度）时，默认为原始的 `msg.sender`。
      */
     function _msgSender() internal view virtual override returns (address) {
         uint256 calldataLength = msg.data.length;
         uint256 contextSuffixLength = _contextSuffixLength();
         if (calldataLength >= contextSuffixLength && isTrustedForwarder(msg.sender)) {
             unchecked {
+                // 只取后面20位
                 return address(bytes20(msg.data[calldataLength - contextSuffixLength:]));
             }
         } else {
@@ -65,15 +61,14 @@ abstract contract ERC2771Context is Context {
     }
 
     /**
-     * @dev Override for `msg.data`. Defaults to the original `msg.data` whenever
-     * a call is not performed by the trusted forwarder or the calldata length is less than
-     * 20 bytes (an address length).
+     * @dev `msg.data` 的重写。当调用不是由受信任的转发器执行，或者 calldata 长度小于20字节（一个地址的长度）时，默认为原始的 `msg.data`。
      */
     function _msgData() internal view virtual override returns (bytes calldata) {
         uint256 calldataLength = msg.data.length;
         uint256 contextSuffixLength = _contextSuffixLength();
         if (calldataLength >= contextSuffixLength && isTrustedForwarder(msg.sender)) {
             unchecked {
+                // 去掉后面20位
                 return msg.data[:calldataLength - contextSuffixLength];
             }
         } else {
@@ -82,7 +77,7 @@ abstract contract ERC2771Context is Context {
     }
 
     /**
-     * @dev ERC-2771 specifies the context as being a single address (20 bytes).
+     * @dev ERC-2771 将上下文指定为单个地址（20字节）。
      */
     function _contextSuffixLength() internal view virtual override returns (uint256) {
         return 20;

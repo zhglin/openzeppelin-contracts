@@ -11,54 +11,46 @@ import {Address} from "../utils/Address.sol";
 import {Errors} from "../utils/Errors.sol";
 
 /**
- * @dev A forwarder compatible with ERC-2771 contracts. See {ERC2771Context}.
+ * @dev 与 ERC-2771 合约兼容的转发器。参见 {ERC2771Context}。
  *
- * This forwarder operates on forward requests that include:
+ * 此转发器操作的转发请求包括：
  *
- * * `from`: An address to operate on behalf of. It is required to be equal to the request signer.
- * * `to`: The address that should be called.
- * * `value`: The amount of native token to attach with the requested call.
- * * `gas`: The amount of gas limit that will be forwarded with the requested call.
- * * `nonce`: A unique transaction ordering identifier to avoid replayability and request invalidation.
- * * `deadline`: A timestamp after which the request is not executable anymore.
- * * `data`: Encoded `msg.data` to send with the requested call.
+ * * `from`: 代表其操作的地址。要求等于请求的签名者。
+ * * `to`: 应该被调用的地址。
+ * * `value`: 随请求调用附加的原生代币数量。
+ * * `gas`: 随请求调用转发的 gas 上限数量。
+ * * `nonce`: 唯一的交易排序标识符，以避免重放攻击和请求失效。
+ * * `deadline`: 请求不再可执行的时间戳。
+ * * `data`: 随请求调用发送的编码后的 `msg.data`。
  *
- * Relayers are able to submit batches if they are processing a high volume of requests. With high
- * throughput, relayers may run into limitations of the chain such as limits on the number of
- * transactions in the mempool. In these cases the recommendation is to distribute the load among
- * multiple accounts.
+ * 如果中继者处理大量请求，他们能够提交批量请求。
+ * 在高吞吐量下，中继者可能会遇到链的限制，例如内存池中交易数量的限制。在这些情况下，建议将负载分散到多个账户中。
  *
- * NOTE: Batching requests includes an optional refund for unused `msg.value` that is achieved by
- * performing a call with empty calldata. While this is within the bounds of ERC-2771 compliance,
- * if the refund receiver happens to consider the forwarder a trusted forwarder, it MUST properly
- * handle `msg.data.length == 0`. `ERC2771Context` in OpenZeppelin Contracts versions prior to 4.9.3
- * do not handle this properly.
+ * 注意：批量请求包括一个可选的未使用 `msg.value` 的退款，这是通过执行一个空 calldata 的调用来实现的。
+ * 虽然这在 ERC-2771 合规性范围内，但如果退款接收者恰好将此转发器视为受信任的转发器，它必须正确处理 `msg.data.length == 0` 的情况。
+ * OpenZeppelin Contracts 4.9.3 之前的版本中的 `ERC2771Context` 没有正确处理此问题。
  *
- * ==== Security Considerations
+ * ==== 安全考量
  *
- * If a relayer submits a forward request, it should be willing to pay up to 100% of the gas amount
- * specified in the request. This contract does not implement any kind of retribution for this gas,
- * and it is assumed that there is an out of band incentive for relayers to pay for execution on
- * behalf of signers. Often, the relayer is operated by a project that will consider it a user
- * acquisition cost.
+ * 如果中继者提交转发请求，它应该愿意支付请求中指定的 gas 数量的100%。
+ * 此合约没有实现任何对此 gas 的补偿机制，并假定存在带外激励，促使中继者代表签名者支付执行费用。
+ * 通常，中继者由一个项目运营，该项目会将其视为用户获取成本。
  *
- * By offering to pay for gas, relayers are at risk of having that gas used by an attacker toward
- * some other purpose that is not aligned with the expected out of band incentives. If you operate a
- * relayer, consider whitelisting target contracts and function selectors. When relaying ERC-721 or
- * ERC-1155 transfers specifically, consider rejecting the use of the `data` field, since it can be
- * used to execute arbitrary code.
+ * 通过提供支付 gas 的服务，中继者面临着其 gas 被攻击者用于与预期带外激励不符的其他目的的风险。
+ * 如果您运营一个中继者，请考虑将目标合约和函数选择器列入白名单。
+ * 在专门中继 ERC-721 或 ERC-1155 转移时，请考虑拒绝使用 `data` 字段，因为它可用于执行任意代码。
  */
 contract ERC2771Forwarder is EIP712, Nonces {
     using ECDSA for bytes32;
 
     struct ForwardRequestData {
-        address from;
-        address to;
-        uint256 value;
-        uint256 gas;
-        uint48 deadline;
-        bytes data;
-        bytes signature;
+        address from;   // 代表其操作的地址。要求等于请求的签名者。
+        address to;     // 应该被调用的地址。
+        uint256 value;  // 随请求调用附加的原生代币数量。
+        uint256 gas;    // 随请求调用转发的 gas 上限数量。
+        uint48 deadline;    // 请求不再可执行的时间戳。
+        bytes data; //  随请求调用发送的编码后的 `msg.data`。
+        bytes signature;    // 请求的签名，见 {_recoverForwardRequestSigner}。
     }
 
     bytes32 internal constant _FORWARD_REQUEST_TYPEHASH =
@@ -67,47 +59,43 @@ contract ERC2771Forwarder is EIP712, Nonces {
         );
 
     /**
-     * @dev Emitted when a `ForwardRequest` is executed.
+     * @dev 当一个 `ForwardRequest` 被执行时发出。
      *
-     * NOTE: An unsuccessful forward request could be due to an invalid signature, an expired deadline,
-     * or simply a revert in the requested call. The contract guarantees that the relayer is not able to force
-     * the requested call to run out of gas.
+     * 注意：一个不成功的转发请求可能是由于无效的签名、过期的截止日期，或者仅仅是请求的调用中发生了回退。合约保证中继者无法强制使请求的调用耗尽 gas。
      */
     event ExecutedForwardRequest(address indexed signer, uint256 nonce, bool success);
 
     /**
-     * @dev The request `from` doesn't match with the recovered `signer`.
+     * @dev 请求的 `from` 与恢复的 `signer` 不匹配。
      */
     error ERC2771ForwarderInvalidSigner(address signer, address from);
 
     /**
-     * @dev The `requestedValue` doesn't match with the available `msgValue`.
+     * @dev 请求的 `requestedValue` 与可用的 `msgValue` 不匹配。
      */
     error ERC2771ForwarderMismatchedValue(uint256 requestedValue, uint256 msgValue);
 
     /**
-     * @dev The request `deadline` has expired.
+     * @dev 请求的 `deadline` 已过期。
      */
     error ERC2771ForwarderExpiredRequest(uint48 deadline);
 
     /**
-     * @dev The request target doesn't trust the `forwarder`.
+     * @dev 请求的目标不信任此 `forwarder`。
      */
     error ERC2771UntrustfulTarget(address target, address forwarder);
 
     /**
-     * @dev See {EIP712-constructor}.
+     * @dev 参见 {EIP712-constructor}。
      */
     constructor(string memory name) EIP712(name, "1") {}
 
     /**
-     * @dev Returns `true` if a request is valid for a provided `signature` at the current block timestamp.
+     * @dev 如果一个请求在当前区块时间戳下对于提供的 `signature` 是有效的，则返回 `true`。
      *
-     * A transaction is considered valid when the target trusts this forwarder, the request hasn't expired
-     * (deadline is not met), and the signer matches the `from` parameter of the signed request.
+     * 当目标信任此转发器、请求未过期（未达到截止日期）且签名者与签名请求的 `from` 参数匹配时，交易被认为是有效的。
      *
-     * NOTE: A request may return false here but it won't cause {executeBatch} to revert if a refund
-     * receiver is provided.
+     * 注意：如果提供了退款接收者，一个请求在这里可能返回 false，但这不会导致 {executeBatch} 回退。
      */
     function verify(ForwardRequestData calldata request) public view virtual returns (bool) {
         (bool isTrustedForwarder, bool active, bool signerMatch, ) = _validate(request);
@@ -115,19 +103,16 @@ contract ERC2771Forwarder is EIP712, Nonces {
     }
 
     /**
-     * @dev Executes a `request` on behalf of `signature`'s signer using the ERC-2771 protocol. The gas
-     * provided to the requested call may not be exactly the amount requested, but the call will not run
-     * out of gas. Will revert if the request is invalid or the call reverts, in this case the nonce is not consumed.
+     * @dev 使用 ERC-2771 协议代表 `signature` 的签名者执行一个 `request`。提供给请求调用的 gas 可能不完全是请求的数量，但调用不会耗尽 gas。如果请求无效或调用回退，将会回退，在这种情况下 nonce 不会被消耗。
      *
-     * Requirements:
+     * 要求：
      *
-     * - The request value should be equal to the provided `msg.value`.
-     * - The request should be valid according to {verify}.
+     * - 请求的 value 应等于提供的 `msg.value`。
+     * - 根据 {verify}，请求应该是有效的。
      */
     function execute(ForwardRequestData calldata request) public payable virtual {
-        // We make sure that msg.value and request.value match exactly.
-        // If the request is invalid or the call reverts, this whole function
-        // will revert, ensuring value isn't stuck.
+        // 我们确保 msg.value 和 request.value 完全匹配。
+        // 如果请求无效或调用回退，整个函数将回退，确保 value 不会被卡住。
         if (msg.value != request.value) {
             revert ERC2771ForwarderMismatchedValue(request.value, msg.value);
         }
@@ -138,27 +123,19 @@ contract ERC2771Forwarder is EIP712, Nonces {
     }
 
     /**
-     * @dev Batch version of {execute} with optional refunding and atomic execution.
+     * @dev {execute} 的批量版本，带有可选的退款和原子执行功能。
      *
-     * In case a batch contains at least one invalid request (see {verify}), the
-     * request will be skipped and the `refundReceiver` parameter will receive back the
-     * unused requested value at the end of the execution. This is done to prevent reverting
-     * the entire batch when a request is invalid or has already been submitted.
+     * 如果一个批次中至少包含一个无效请求（参见 {verify}），该请求将被跳过，并且 `refundReceiver` 参数将在执行结束时收回未使用的请求值。这样做是为了防止在请求无效或已提交时回退整个批次。
      *
-     * If the `refundReceiver` is the `address(0)`, this function will revert when at least
-     * one of the requests was not valid instead of skipping it. This could be useful if
-     * a batch is required to get executed atomically (at least at the top-level). For example,
-     * refunding (and thus atomicity) can be opt-out if the relayer is using a service that avoids
-     * including reverted transactions.
+     * 如果 `refundReceiver` 是 `address(0)`，当至少有一个请求无效时，此函数将回退而不是跳过它。如果要求一个批次原子地执行（至少在顶层），这可能很有用。例如，如果中继者使用的服务避免包含已回退的交易，则可以选择退出退款（以及原子性）。
      *
-     * Requirements:
+     * 要求：
      *
-     * - The sum of the requests' values should be equal to the provided `msg.value`.
-     * - All of the requests should be valid (see {verify}) when `refundReceiver` is the zero address.
+     * - 请求的总 value 应等于提供的 `msg.value`。
+     * - 当 `refundReceiver` 是零地址时，所有请求都应是有效的（参见 {verify}）。
      *
-     * NOTE: Setting a zero `refundReceiver` guarantees an all-or-nothing requests execution only for
-     * the first-level forwarded calls. In case a forwarded request calls to a contract with another
-     * subcall, the second-level call may revert without the top-level call reverting.
+     * 注意：设置一个零 `refundReceiver` 仅保证第一级转发调用的“全有或全无”请求执行。
+     * 如果一个转发的请求调用到一个带有另一个子调用的合约，第二级调用可能会回退而顶层调用不会回退。
      */
     function executeBatch(
         ForwardRequestData[] calldata requests,
@@ -177,25 +154,23 @@ contract ERC2771Forwarder is EIP712, Nonces {
             }
         }
 
-        // The batch should revert if there's a mismatched msg.value provided
-        // to avoid request value tampering
+        // 如果提供了不匹配的 msg.value，批处理应该回退，以避免请求值被篡改
         if (requestsValue != msg.value) {
             revert ERC2771ForwarderMismatchedValue(requestsValue, msg.value);
         }
 
-        // Some requests with value were invalid (possibly due to frontrunning).
-        // To avoid leaving ETH in the contract this value is refunded.
+        // 一些带有 value 的请求是无效的（可能是由于抢跑）。
+        // 为了避免将 ETH 留在合约中，此值将被退还。
         if (refundValue != 0) {
-            // We know refundReceiver != address(0) && requestsValue == msg.value
-            // meaning we can ensure refundValue is not taken from the original contract's balance
-            // and refundReceiver is a known account.
+            // 我们知道 refundReceiver != address(0) && requestsValue == msg.value
+            // 这意味着我们可以确保 refundValue 不是从原始合约的余额中获取的
+            // 并且 refundReceiver 是一个已知的账户。
             Address.sendValue(refundReceiver, refundValue);
         }
     }
 
     /**
-     * @dev Validates if the provided request can be executed at current block timestamp with
-     * the given `request.signature` on behalf of `request.signer`.
+     * @dev 验证提供的请求是否可以在当前区块时间戳下，使用给定的 `request.signature` 代表 `request.signer` 执行。
      */
     function _validate(
         ForwardRequestData calldata request
@@ -211,10 +186,9 @@ contract ERC2771Forwarder is EIP712, Nonces {
     }
 
     /**
-     * @dev Returns a tuple with the recovered the signer of an EIP712 forward request message hash
-     * and a boolean indicating if the signature is valid.
+     * @dev 返回一个元组，其中包含从 EIP712 转发请求消息哈希中恢复的签名者，以及一个指示签名是否有效的布尔值。
      *
-     * NOTE: The signature is considered valid if {ECDSA-tryRecover} indicates no recover error for it.
+     * 注意：如果 {ECDSA-tryRecover} 表明签名没有恢复错误，则该签名被认为是有效的。
      */
     function _recoverForwardRequestSigner(
         ForwardRequestData calldata request
@@ -238,19 +212,18 @@ contract ERC2771Forwarder is EIP712, Nonces {
     }
 
     /**
-     * @dev Validates and executes a signed request returning the request call `success` value.
+     * @dev 验证并执行一个已签名的请求，返回请求调用的 `success` 值。
      *
-     * Internal function without msg.value validation.
+     * 无 msg.value 验证的内部函数。
      *
-     * Requirements:
+     * 要求：
      *
-     * - The caller must have provided enough gas to forward with the call.
-     * - The request must be valid (see {verify}) if the `requireValidRequest` is true.
+     * - 调用者必须提供足够的 gas 以随调用一起转发。
+     * - 如果 `requireValidRequest` 为 true，则请求必须是有效的（参见 {verify}）。
      *
-     * Emits an {ExecutedForwardRequest} event.
+     * 发出 {ExecutedForwardRequest} 事件。
      *
-     * IMPORTANT: Using this function doesn't check that all the `msg.value` was sent, potentially
-     * leaving value stuck in the contract.
+     * 重要提示：使用此函数不会检查是否发送了所有的 `msg.value`，可能会导致 value 卡在合约中。
      */
     function _execute(
         ForwardRequestData calldata request,
@@ -258,8 +231,7 @@ contract ERC2771Forwarder is EIP712, Nonces {
     ) internal virtual returns (bool success) {
         (bool isTrustedForwarder, bool active, bool signerMatch, address signer) = _validate(request);
 
-        // Need to explicitly specify if a revert is required since non-reverting is default for
-        // batches and reversion is opt-in since it could be useful in some scenarios
+        // 需要明确指定是否需要回退，因为对于批处理，不回退是默认行为，而回退是可选的，因为它在某些场景下可能有用
         if (requireValidRequest) {
             if (!isTrustedForwarder) {
                 revert ERC2771UntrustfulTarget(request.to, address(this));
@@ -274,14 +246,15 @@ contract ERC2771Forwarder is EIP712, Nonces {
             }
         }
 
-        // Ignore an invalid request because requireValidRequest = false
+        // 忽略一个无效的请求，因为 requireValidRequest = false
         if (isTrustedForwarder && signerMatch && active) {
-            // Nonce should be used before the call to prevent reusing by reentrancy
+            // 应在调用前使用 Nonce，以防止通过重入重用
             uint256 currentNonce = _useNonce(signer);
 
             uint256 reqGas = request.gas;
             address to = request.to;
             uint256 value = request.value;
+            // 编码后的 msg.data 是请求的 data 后跟请求的 from 地址
             bytes memory data = abi.encodePacked(request.data, request.from);
 
             uint256 gasLeft;
@@ -298,13 +271,29 @@ contract ERC2771Forwarder is EIP712, Nonces {
     }
 
     /**
-     * @dev Returns whether the target trusts this forwarder.
+     * @dev 返回目标是否信任此转发器。
      *
-     * This function performs a static call to the target contract calling the
-     * {ERC2771Context-isTrustedForwarder} function.
+     * 此函数对目标合约执行静态调用，调用 {ERC2771Context-isTrustedForwarder} 函数。
      *
-     * NOTE: Consider the execution of this forwarder is permissionless. Without this check, anyone may transfer assets
-     * that are owned by, or are approved to this forwarder.
+     * 注意：考虑到此转发器的执行是无需许可的。如果没有此检查，任何人都可能转移由此转发器拥有或批准给此转发器的资产。
+     */
+     /*
+        target 地址，简单来说，就是用户真正想要交互的那个目标合约地址。它是整个元交易流程的“最终目的地”。
+        例如：
+            * 如果用户想调用一个 MyToken 合约的 transfer 函数，那么 target 就是 MyToken 合约的地址。
+        这个 target 地址主要被用在两个关键地方：
+            1. 用于安全检查 (_isTrustedByTarget 函数中)
+                在真正执行用户的请求之前，Forwarder 必须先进行一次安全确认，它会问 target 合约一个问题：
+                    “你（`target`）信任我（`Forwarder`）吗？”    
+                这个检查就是通过调用 target 合约上的 isTrustedForwarder() 函数来完成的。只有当 target 合约返回 true 时，Forwarder 才会继续下一步。
+                这可以防止 Forwarder 被诱骗去调用一个不兼容或恶意的合约。 
+            2. 用于最终执行 (_execute 函数中)
+                一旦安全检查通过，Forwarder 就会执行用户的原始请求。     
+                它会使用底层的 call 操作码，将用户签名的调用数据（request.data）和资金（request.value）发送到这个 target 地址。
+
+        目标合约（`target`）必须继承 `ERC2771Context`，或者至少实现其核心功能，才能与 ERC2771Forwarder 正确协作。    
+            1. 为了通过“信任检查” (_isTrustedByTarget)
+            2. 为了正确识别“真实用户” (_msgSender)     
      */
     function _isTrustedByTarget(address target) internal view virtual returns (bool) {
         bytes memory encodedParams = abi.encodeCall(ERC2771Context.isTrustedForwarder, (address(this)));
@@ -313,7 +302,7 @@ contract ERC2771Forwarder is EIP712, Nonces {
         uint256 returnSize;
         uint256 returnValue;
         assembly ("memory-safe") {
-            // Perform the staticcall and save the result in the scratch space.
+            // 执行 staticcall 并将结果保存在暂存空间中。
             // | Location  | Content  | Content (Hex)                                                      |
             // |-----------|----------|--------------------------------------------------------------------|
             // |           |          |                                                           result ↓ |
@@ -327,42 +316,36 @@ contract ERC2771Forwarder is EIP712, Nonces {
     }
 
     /**
-     * @dev Checks if the requested gas was correctly forwarded to the callee.
+     * @dev 检查请求的 gas 是否已正确转发给被调用者。
      *
-     * As a consequence of https://eips.ethereum.org/EIPS/eip-150[EIP-150]:
-     * - At most `gasleft() - floor(gasleft() / 64)` is forwarded to the callee.
-     * - At least `floor(gasleft() / 64)` is kept in the caller.
+     * 作为 https://eips.ethereum.org/EIPS/eip-150[EIP-150] 的结果：
+     * - 最多 `gasleft() - floor(gasleft() / 64)` 被转发给被调用者。
+     * - 至少 `floor(gasleft() / 64)` 保留在调用者中。
      *
-     * It reverts consuming all the available gas if the forwarded gas is not the requested gas.
+     * 如果转发的 gas 不是请求的 gas，它会回退并消耗所有可用的 gas。
      *
-     * IMPORTANT: The `gasLeft` parameter should be measured exactly at the end of the forwarded call.
-     * Any gas consumed in between will make room for bypassing this check.
+     * 重要提示：`gasLeft` 参数应在转发调用结束后精确测量。在此期间消耗的任何 gas 都会为绕过此检查提供空间。
      */
     function _checkForwardedGas(uint256 gasLeft, ForwardRequestData calldata request) private pure {
-        // To avoid insufficient gas griefing attacks, as referenced in https://ronan.eth.limo/blog/ethereum-gas-dangers/
+        // 为了避免不足 gas 的恶意攻击，如 https://ronan.eth.limo/blog/ethereum-gas-dangers/ 中所述
         //
-        // A malicious relayer can attempt to shrink the gas forwarded so that the underlying call reverts out-of-gas
-        // but the forwarding itself still succeeds. In order to make sure that the subcall received sufficient gas,
-        // we will inspect gasleft() after the forwarding.
+        // 恶意的中继者可以尝试减少转发的 gas，以便底层调用因 gas 不足而回退，但转发本身仍然成功。为了确保子调用接收到足够的 gas，我们将在转发后检查 gasleft()。
         //
-        // Let X be the gas available before the subcall, such that the subcall gets at most X * 63 / 64.
-        // We can't know X after CALL dynamic costs, but we want it to be such that X * 63 / 64 >= req.gas.
-        // Let Y be the gas used in the subcall. gasleft() measured immediately after the subcall will be gasleft() = X - Y.
-        // If the subcall ran out of gas, then Y = X * 63 / 64 and gasleft() = X - Y = X / 64.
-        // Under this assumption req.gas / 63 > gasleft() is true if and only if
-        // req.gas / 63 > X / 64, or equivalently req.gas > X * 63 / 64.
-        // This means that if the subcall runs out of gas we are able to detect that insufficient gas was passed.
+        // 设 X 为子调用之前的可用 gas，这样子调用最多获得 X * 63 / 64。
+        // 我们在 CALL 的动态成本之后无法知道 X，但我们希望 X * 63 / 64 >= req.gas。
+        // 设 Y 为子调用中使用的 gas。在子调用后立即测量的 gasleft() 将是 gasleft() = X - Y。
+        // 如果子调用耗尽 gas，则 Y = X * 63 / 64，且 gasleft() = X - Y = X / 64。
+        // 在此假设下，当且仅当 req.gas / 63 > X / 64，或等效地 req.gas > X * 63 / 64 时，req.gas / 63 > gasleft() 为真。
+        // 这意味着如果子调用耗尽 gas，我们能够检测到传递的 gas 不足。
         //
-        // We will now also see that req.gas / 63 > gasleft() implies that req.gas >= X * 63 / 64.
-        // The contract guarantees Y <= req.gas, thus gasleft() = X - Y >= X - req.gas.
+        // 我们现在还将看到 req.gas / 63 > gasleft() 意味着 req.gas >= X * 63 / 64。
+        // 合约保证 Y <= req.gas，因此 gasleft() = X - Y >= X - req.gas。
         // -    req.gas / 63 > gasleft()
         // -    req.gas / 63 >= X - req.gas
         // -    req.gas >= X * 63 / 64
-        // In other words if req.gas < X * 63 / 64 then req.gas / 63 <= gasleft(), thus if the relayer behaves honestly
-        // the forwarding does not revert.
+        // 换句话说，如果 req.gas < X * 63 / 64，则 req.gas / 63 <= gasleft()，因此如果中继者诚实地行事，转发不会回退。
         if (gasLeft < request.gas / 63) {
-            // We explicitly trigger invalid opcode to consume all gas and bubble-up the effects, since
-            // neither revert or assert consume all gas since Solidity 0.8.20
+            // 我们明确触发无效操作码以消耗所有 gas 并上浮效果，因为自 Solidity 0.8.20 起，revert 和 assert 都不再消耗所有 gas
             // https://docs.soliditylang.org/en/v0.8.20/control-structures.html#panic-via-assert-and-error-via-require
             assembly ("memory-safe") {
                 invalid()
